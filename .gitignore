@@ -4,4 +4,3 @@ db_url
 alembic.ini
 resources
 resources/*
-auth/oauth.py
