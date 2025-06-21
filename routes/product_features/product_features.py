@@ -10,7 +10,7 @@ from database.db import get_db
 from schemas.product_features.product_features import ProductFeaturesSchema
 from typing import List
 
-router = APIRouter(prefix="/product-features", tags=["product-features"])
+router = APIRouter(prefix="/product-features", tags=["Product-Features"])
 
 
 @router.get("", status_code=status.HTTP_200_OK)

@@ -10,7 +10,7 @@ import shutil
 import uuid
 import json
 
-router = APIRouter(prefix="/products", tags=["products"])
+router = APIRouter(prefix="/products", tags=["Products"])
 
 UPLOAD_DIR = "resources/products"
 

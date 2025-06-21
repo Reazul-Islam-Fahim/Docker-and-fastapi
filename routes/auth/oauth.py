@@ -5,7 +5,7 @@ from database.db import get_db
 from auth.security import create_access_token
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix="/auth/oauth", tags=["oauth"])
+router = APIRouter(prefix="/auth/oauth", tags=["OAuth"])
 
 @router.get("/login/{provider}")
 async def login(request: Request, provider: str):
@@ -49,7 +49,7 @@ async def auth_callback(request: Request, provider: str, db: AsyncSession = Depe
 
         user = await get_or_create_user(db, email, name)
 
-        access_token = create_access_token(data={"sub": user.email})
+        access_token = create_access_token(data={"email": user.email})
 
         return {"access_token": access_token, "token_type": "bearer", "user": {"email": user.email, "name": user.name}}
 

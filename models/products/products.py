@@ -39,3 +39,6 @@ class Products(Base):
     product_features = relationship("ProductFeatures", back_populates="products")
     wishlist = relationship("Wishlist", back_populates="products")
     cart_items = relationship("CartItems", back_populates="products")
+    inventory = relationship("Inventory", back_populates="products")
+    reviews = relationship("Reviews", back_populates="products")
+    reply = relationship("Reply", back_populates="products")

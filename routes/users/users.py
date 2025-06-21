@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 UPLOAD_DIR = "resources/users"
 

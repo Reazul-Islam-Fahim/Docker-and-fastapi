@@ -8,7 +8,7 @@ from database.db import get_db
 from auth.registration import register_user, send_verification_email
 from auth.security import decode_email_verification_token
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/register")
 async def register(

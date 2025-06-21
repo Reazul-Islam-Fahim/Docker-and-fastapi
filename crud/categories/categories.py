@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from fastapi import HTTPException, status, UploadFile, File
+from fastapi import HTTPException, status
 from models.sub_categories.sub_categories import SubCategories
 from models.categories.categories import Categories
 from schemas.categories.categories import CategoriesSchema
@@ -8,8 +8,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from models.products.products import Products
 from models.sub_categories.sub_categories import SubCategories
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
+from typing import Optional
 
 async def get_products_by_category_id(db: AsyncSession, category_id: int):
     try:
@@ -56,18 +57,54 @@ async def get_category_by_id(db: AsyncSession, id: int):
     return db_category  
 
 
+# Get all Categories with the sub-categories
+async def get_all_categories(
+    db: AsyncSession,
+    page: int = 1,
+    limit: int = 10
+):
+    page = max(page, 1)
+    limit = max(limit, 1)
+    offset = (page - 1) * limit
 
+    total_result = await db.execute(select(func.count()).select_from(Categories))
+    total = total_result.scalar()
 
-async def get_all_categories(db: AsyncSession, skip: int = 0, limit: int = 10):
     result = await db.execute(
         select(Categories)
         .options(selectinload(Categories.sub_categories))
-        .offset(skip)
+        .offset(offset)
         .limit(limit)
     )
-    categories = result.scalars().all()
-    return categories  
 
+    categories = result.scalars().all()
+
+    return {
+        "data": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "image": c.image,
+                "created_at": c.created_at,
+                "sub_categories": [
+                    {
+                        "id": sub.id,
+                        "name": sub.name,
+                        "image": sub.image,
+                        "created_at": sub.created_at,
+                    }
+                    for sub in c.sub_categories
+                ]
+            }
+            for c in categories
+        ],
+        "meta": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": (total + limit - 1) // limit
+        }
+    }
 
 
 async def get_sub_category_by_category_id(db: AsyncSession, category_id: int):
@@ -83,7 +120,7 @@ async def get_sub_category_by_category_id(db: AsyncSession, category_id: int):
         return sub_categories
 
     except HTTPException:
-        raise  # re-raise 404 error
+        raise
 
     except Exception as e:
         print("DB Error:", e)
@@ -112,6 +149,7 @@ async def update_category(
 
         category_response = {
             "name": db_category.name,
+            "image": db_category.image,
             "description": db_category.description,
             "IsActive": db_category.is_active
         }
@@ -131,17 +169,18 @@ async def update_category(
             detail=f"Unexpected error: {str(e)}"
         )
 
+
 async def create_category(
-    db: AsyncSession, 
+    db: AsyncSession,
     category_data: CategoriesSchema,
-    filePath: str
+    file_path: Optional[str] = None
 ):
     try:
         result = await db.execute(
             select(Categories).where(Categories.name == category_data.name)
         )
         existing_category = result.scalar_one_or_none()
-        
+
         if existing_category:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -152,22 +191,14 @@ async def create_category(
             name=category_data.name,
             description=category_data.description,
             is_active=category_data.is_active,
-            image=filePath
+            image=file_path
         )
-        
 
         db.add(new_category)
         await db.commit()
         await db.refresh(new_category)
-        
-        result = await db.execute(
-            select(Categories)
-            .where(Categories.id == new_category.id)
-            .options(selectinload(Categories.sub_categories))
-        )
-        category_with_subs = result.scalar_one()
 
-        return category_with_subs
+        return new_category
 
     except SQLAlchemyError as e:
         await db.rollback()

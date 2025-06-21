@@ -6,6 +6,7 @@ from schemas.wishlist.wishlist import WishlistSchema
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
+#Create Wishlist
 async def create_wishlist(
     db: AsyncSession, 
     wishlist_data: WishlistSchema,
@@ -28,6 +29,7 @@ async def create_wishlist(
         )
 
 
+# Get All wishlist by userID
 async def get_wishlists_by_user_id(db: AsyncSession, user_id: int):
     try:
         result = await db.execute(
@@ -51,6 +53,7 @@ async def get_wishlists_by_user_id(db: AsyncSession, user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving wishlist: {str(e)}")
     
+# Delete the wishlist by ID
 async def delete_wishlist_item(wishlist_id: int, db: AsyncSession):
     try:
         result = await db.execute(

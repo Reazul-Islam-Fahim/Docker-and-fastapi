@@ -7,7 +7,7 @@ from typing import Optional
 import os
 import shutil
 
-router = APIRouter(prefix="/brands", tags=["brands"])
+router = APIRouter(prefix="/brands", tags=["Brands"])
 
 UPLOAD_DIR = "resources/brands"
 

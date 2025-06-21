@@ -10,7 +10,7 @@ from crud.bank_details.bank_details import (
     create_bank_details
 )
 
-router = APIRouter(prefix="/bank-details", tags=["bank-details"])
+router = APIRouter(prefix="/bank-details", tags=["Bank-Details"])
 
 
 @router.get("/{id}", response_model=BankDetailsSchema)

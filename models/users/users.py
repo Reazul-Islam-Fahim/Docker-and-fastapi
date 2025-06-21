@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Enum as senum, func
+from sqlalchemy import ARRAY, Column, ForeignKey, Integer, String, Boolean, Enum as senum, func
 from sqlalchemy.orm import relationship
 from enum import Enum
 from database.db import Base
@@ -6,6 +6,10 @@ from database.db import Base
 class roles(str, Enum):
     admin = "admin"
     user = "user"
+    superAdmin = "superAdmin"
+    moderator = "moderator"
+    accounts = "accounts"
+    vendor = "vendor"
     
 class genders(str, Enum):
     M = 'M'
@@ -30,7 +34,11 @@ class Users(Base):
     isChecked = Column(Boolean, nullable=False, default=False)
     created_at = Column(String(50), nullable=False, server_default=func.now())
     updated_at = Column(String(50), nullable=False, server_default=func.now(), onupdate=func.now())
-
+    used_cupon = Column(ARRAY(Integer), nullable=True, default=list)
+    
     vendors = relationship("Vendors", back_populates="users")
     wishlist = relationship("Wishlist", back_populates="users")
     cart = relationship("Cart", back_populates="users")
+    user_addresses = relationship("UserAddresses", back_populates="users")
+    reviews = relationship("Reviews", back_populates="users")
+    reply = relationship("Reply", back_populates="users")

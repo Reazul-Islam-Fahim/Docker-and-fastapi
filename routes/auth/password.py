@@ -9,10 +9,10 @@ from config import settings, PASSWORD_RESET_TEMPLATE
 from utils.email import send_email
 import logging
 
-router = APIRouter(tags=["password"])
+router = APIRouter(prefix="/auth", tags=["Password"])
 
 
-@router.post("/auth/forgot-password")
+@router.post("/forgot-password")
 async def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     try:
         result = await db.execute(select(Users).filter(Users.email == data.email))
@@ -47,7 +47,7 @@ async def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get
         )
 
 
-@router.post("/auth/reset-password")
+@router.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
     try:
         email = verify_password_reset_token(data.token)

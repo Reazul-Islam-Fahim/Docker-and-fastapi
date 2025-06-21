@@ -4,8 +4,9 @@ from crud.wishlist.wishlist import get_wishlists_by_user_id, create_wishlist, de
 from database.db import get_db
 from schemas.wishlist.wishlist import WishlistSchema, WishlistItemResponse
 
-router = APIRouter(prefix="/wishlist", tags=["wishlist"])
+router = APIRouter(prefix="/wishlist", tags=["Wishlist"])
 
+# create wishlist 
 @router.post("/", response_model=WishlistItemResponse)
 async def add_to_wishlist(
     wishlist_data: WishlistSchema, 
@@ -13,6 +14,7 @@ async def add_to_wishlist(
 ):
     return await create_wishlist(db, wishlist_data)
 
+# Get all wishlist by userID 
 @router.get("/{user_id}")
 async def get_wishlist_by_user_id_data(user_id: int, db: AsyncSession = Depends(get_db)):
     wishlists_by_user = await get_wishlists_by_user_id(db, user_id)
@@ -20,6 +22,7 @@ async def get_wishlist_by_user_id_data(user_id: int, db: AsyncSession = Depends(
         raise HTTPException(status_code=404, detail="Wishlist not found")
     return {"data": wishlists_by_user}
 
+# Delete the wishlist by wishlist ID
 @router.delete("/{wishlist_id}")
 async def delete_wishlist(wishlist_id: int, db: AsyncSession = Depends(get_db)):
     return await delete_wishlist_item(wishlist_id, db)

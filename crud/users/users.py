@@ -25,6 +25,8 @@ async def get_user(db: AsyncSession, id: int):
         "gender": db_user.gender,
         "dob": db_user.dob,
         "image": db_user.image,
+        "role": db_user.role,
+        "isActive": db_user.is_active,
     }
 
     return user_response
@@ -97,6 +99,8 @@ async def get_users(
                 "dob": user.dob,
                 "status": user.is_active,
                 "image": user.image,
+                "role": user.role,
+                "isActive": user.is_active,
                 "created_at": user.created_at
             }
             for user in users

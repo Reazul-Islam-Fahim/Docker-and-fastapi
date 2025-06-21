@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
@@ -46,9 +47,7 @@ async def get_sub_category_by_id(db: AsyncSession, id: int):
             "image": db_sub_categories.image,
             "is_active": db_sub_categories.is_active
         }
-        
-        # return
-    
+            
         return response
     
     except Exception as e:
@@ -73,41 +72,6 @@ async def get_all_sub_categories(db: AsyncSession, skip: int = 0, limit: int = 1
         }
         for sub_categories in all_sub_categories
     ]
-
-
-
-# async def update_sub_category(
-#     db: AsyncSession,
-#     id: int,
-#     sub_category_data: SubCategoriesSchema,
-#     filePath: str
-# ):
-#     result = await db.execute(select(SubCategories).where(SubCategories.id == id))
-#     db_sub_category = result.scalar_one_or_none()
-
-#     if not db_sub_category:
-#         raise HTTPException(status_code=404, detail="Sub Category is not found")
-
-#     db_sub_category.name = sub_category_data.name
-#     db_sub_category.category_id = sub_category_data.category_id
-#     db_sub_category.description = sub_category_data.description
-#     db_sub_category.image = filePath
-#     db_sub_category.is_active = sub_category_data.is_active
-
-#     await db.commit()
-#     await db.refresh(db_sub_category)
-
-    
-
-#     category_response = {
-#         "name": db_sub_category.name,
-#         "category_id": db_sub_category.category_id,
-#         "description": db_sub_category.description,
-#         "image": db_sub_category.image,
-#         "is_active": db_sub_category.is_active
-#     }
-
-#     return category_response
 
 async def update_sub_category(
     db: AsyncSession,
@@ -155,18 +119,18 @@ async def update_sub_category(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         )
-
+        
 async def create_sub_category(
-    db: AsyncSession, 
+    db: AsyncSession,
     sub_category_data: SubCategoriesSchema,
-    filePath: str
+    file_path: Optional[str] = None
 ):
     try:
         result = await db.execute(
             select(SubCategories).where(SubCategories.name == sub_category_data.name)
         )
         existing_sub_category = result.scalar_one_or_none()
-        
+
         if existing_sub_category:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -175,17 +139,16 @@ async def create_sub_category(
 
         new_sub_category = SubCategories(
             name=sub_category_data.name,
-            category_id = sub_category_data.category_id,
+            category_id=sub_category_data.category_id,
             description=sub_category_data.description,
-            image=filePath,
-            is_active=sub_category_data.is_active
+            is_active=sub_category_data.is_active,
+            image=file_path
         )
-        
 
         db.add(new_sub_category)
         await db.commit()
         await db.refresh(new_sub_category)
-        
+
         return new_sub_category
 
     except SQLAlchemyError as e:

@@ -9,7 +9,7 @@ from crud.best_seller.best_seller import (
     update_best_seller
 )
 
-router = APIRouter(prefix="/best-sellers", tags=["best-sellers"])
+router = APIRouter(prefix="/best-sellers", tags=["Best-Sellers"])
 
 @router.post("", response_model=BestSellerSchema)
 async def create(vendor_id : int, db: AsyncSession = Depends(get_db)):
