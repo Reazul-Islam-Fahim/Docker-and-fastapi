@@ -16,3 +16,4 @@ class UserAddresses(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     users = relationship("Users", back_populates="user_addresses")
+    orders = relationship("Orders", back_populates="user_addresses")

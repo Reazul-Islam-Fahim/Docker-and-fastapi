@@ -4,7 +4,8 @@ from crud.product_features.product_features import (
     get_product_feature_by_id,
     get_all_product_features,
     create_product_feature,
-    update_product_feature
+    update_product_feature,
+    get_feature_with_sub_categories
 )
 from database.db import get_db
 from schemas.product_features.product_features import ProductFeaturesSchema
@@ -13,7 +14,7 @@ from typing import List
 router = APIRouter(prefix="/product-features", tags=["Product-Features"])
 
 
-@router.get("", status_code=status.HTTP_200_OK)
+@router.get("")
 async def read_all_product_features(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, le=100),
@@ -22,7 +23,7 @@ async def read_all_product_features(
     return await get_all_product_features(db, skip=skip, limit=limit)
 
 
-@router.get("/{feature_id}", status_code=status.HTTP_200_OK)
+@router.get("/{feature_id}")
 async def read_product_feature_by_id(
     feature_id: int,
     db: AsyncSession = Depends(get_db)
@@ -30,7 +31,7 @@ async def read_product_feature_by_id(
     return await get_product_feature_by_id(db, feature_id)
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("")
 async def create_feature(
     feature: ProductFeaturesSchema,
     db: AsyncSession = Depends(get_db)
@@ -38,10 +39,18 @@ async def create_feature(
     return await create_product_feature(db, feature)
 
 
-@router.put("/{feature_id}", status_code=status.HTTP_200_OK)
+@router.put("/{feature_id}")
 async def update_feature(
     feature_id: int,
     feature: ProductFeaturesSchema,
     db: AsyncSession = Depends(get_db)
 ):
     return await update_product_feature(db, feature_id, feature)
+
+
+@router.get("/{feature_id}/sub-categories")
+async def get_feature_details_with_sub_categories(
+    feature_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    return await get_feature_with_sub_categories(db, feature_id)

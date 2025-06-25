@@ -4,9 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crud.vendor.vendors import get_vendor_by_id, get_all_vendors, update_vendor, create_vendor
 from database.db import get_db
 from schemas.vendor.vendors import VendorsSchema
+from sqlalchemy.future import select
+from models.vendor.vendors import Vendors 
 from typing import Optional
 import os
 import shutil
+from utils.slug import generate_unique_slug
+
 
 router = APIRouter(prefix="/vendors", tags=["Vendors"])
 
@@ -33,7 +37,6 @@ async def get_vendor_by_id_data(id: int, db: AsyncSession = Depends(get_db)):
 async def update_sub_category_info(
     id: int,
     user_id: int = Form(...),
-    vendor_slug: str = Form(...),
     store_name: Optional[str] = Form(None),
     documents: Optional[str] = Form(None), 
     business_address: Optional[str] = Form(None),
@@ -72,7 +75,7 @@ async def update_sub_category_info(
 
         vendor_data = VendorsSchema(
             user_id=user_id,
-            vendor_slug=vendor_slug,
+            vendor_slug=generate_unique_slug(db, store_name, Vendors) if store_name else None,
             store_name=store_name,
             documents=documents_dict,
             business_address=business_address,
@@ -98,8 +101,7 @@ async def update_sub_category_info(
 async def create_vendor_data(
     user_id: int = Form(...),
     store_name: str = Form(...),
-    vendor_slug: str = Form(...),
-    documents: Optional[str] = Form(None),  # Accept JSON string
+    documents: Optional[str] = Form(None), 
     business_address: Optional[str] = Form(None),
     pick_address: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(True),
@@ -125,7 +127,7 @@ async def create_vendor_data(
         vendor_data = VendorsSchema(
             user_id=user_id,
             store_name=store_name,
-            vendor_slug=vendor_slug,
+            vendor_slug=generate_unique_slug(db, store_name, Vendors),
             documents=parsed_documents,
             business_address=business_address,
             pick_address=pick_address,

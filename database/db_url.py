@@ -1,1 +1,1 @@
-SQLALCHEMY_DATABASE_URL="postgresql+asyncpg://postgres:password@192.168.0.100:5432/postgres"
+SQLALCHEMY_DATABASE_URL="postgresql+asyncpg://postgres:password@192.168.0.100:5432/pooz_store"

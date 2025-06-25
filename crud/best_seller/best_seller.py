@@ -15,8 +15,8 @@ async def get_best_seller_by_id(db: AsyncSession, id: int):
         raise HTTPException(status_code=404, detail="Best seller not found")
     return best_seller
 
-async def get_all_best_sellers(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(select(BestSeller).offset(skip).limit(limit))
+async def get_all_best_sellers(db: AsyncSession, page: int = 0, limit: int = 10):
+    result = await db.execute(select(BestSeller).offset(page * limit).limit(limit))
     return result.scalars().all()
 
 

@@ -28,7 +28,7 @@ async def login_user(db: AsyncSession, user: LoginSchema) -> dict:
 
         token = create_access_token(
             data={
-                "sub": db_user.email,
+                "email": db_user.email,
                 "id": db_user.id,
                 "role": db_user.role
             }

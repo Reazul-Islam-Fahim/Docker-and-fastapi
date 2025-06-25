@@ -95,3 +95,29 @@ async def update_product_feature(db: AsyncSession, id: int, feature: ProductFeat
         await db.rollback()
         print("Unexpected Error (Update):", repr(e))
         raise HTTPException(status_code=500, detail="Unexpected error while updating product feature.")
+
+
+async def get_feature_with_sub_categories(db: AsyncSession, id: int):
+    try:
+        result = await db.execute(
+            select(ProductFeatures).where(ProductFeatures.id == id)
+        )
+        feature = result.scalar_one_or_none()
+
+        if not feature:
+            raise HTTPException(status_code=404, detail="Product feature not found.")
+
+        return {
+            "id": feature.id,
+            "name": feature.name,
+            "type": feature.type,
+            "value": feature.value,
+            "is_active": feature.is_active,
+            "sub_categories": [
+                {"id": sc.id, "name": sc.name}
+                for sc in feature.sub_categories
+            ]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching feature details: {str(e)}")

@@ -27,6 +27,10 @@ async def get_products_by_category_id(db: AsyncSession, category_id: int):
                 "id": p.id,
                 "name": p.name,
                 "description": p.description,
+                "meta_title": p.meta_title,
+                "meta_description": p.meta_description,
+                "brand_id": p.brand_id,
+                "vendor_id": p.vendor_id,
                 "price": p.price,
                 "payable_price": p.payable_price,
                 "available_stock": p.available_stock,
@@ -61,20 +65,22 @@ async def get_category_by_id(db: AsyncSession, id: int):
 async def get_all_categories(
     db: AsyncSession,
     page: int = 1,
-    limit: int = 10
+    limit: int = 10,
+    is_active: Optional[bool] = None
 ):
     page = max(page, 1)
     limit = max(limit, 1)
     offset = (page - 1) * limit
+    query = select(Categories).options(selectinload(Categories.sub_categories))
 
-    total_result = await db.execute(select(func.count()).select_from(Categories))
+    if is_active is not None:
+        query = query.where(Categories.is_active == is_active)
+
+    total_result = await db.execute(select(func.count()).select_from(query.subquery()))
     total = total_result.scalar()
 
     result = await db.execute(
-        select(Categories)
-        .options(selectinload(Categories.sub_categories))
-        .offset(offset)
-        .limit(limit)
+        query.offset(offset).limit(limit)
     )
 
     categories = result.scalars().all()
@@ -84,6 +90,10 @@ async def get_all_categories(
             {
                 "id": c.id,
                 "name": c.name,
+                "description": c.description,
+                "meta_title": c.meta_title,
+                "meta_description": c.meta_description,
+                "is_active": c.is_active,
                 "image": c.image,
                 "created_at": c.created_at,
                 "sub_categories": [
@@ -142,6 +152,9 @@ async def update_category(
 
         db_category.name = category_data.name
         db_category.description = category_data.description
+        db_category.is_active = category_data.is_active
+        db_category.meta_title = category_data.meta_title
+        db_category.meta_description = category_data.meta_description
         db_category.image = filePath
 
         await db.commit()
@@ -151,7 +164,9 @@ async def update_category(
             "name": db_category.name,
             "image": db_category.image,
             "description": db_category.description,
-            "IsActive": db_category.is_active
+            "is_active": db_category.is_active,
+            "meta_title": db_category.meta_title,
+            "meta_description": db_category.meta_description
         }
 
         return category_response
@@ -190,6 +205,8 @@ async def create_category(
         new_category = Categories(
             name=category_data.name,
             description=category_data.description,
+            meta_title=category_data.meta_title,
+            meta_description=category_data.meta_description,
             is_active=category_data.is_active,
             image=file_path
         )

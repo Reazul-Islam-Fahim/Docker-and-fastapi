@@ -11,6 +11,6 @@ class Cart(Base):
     
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
-    cart_items = relationship("CartItems", back_populates="cart")
+    cart_items = relationship("CartItems", back_populates="cart", cascade="all, delete-orphan")
     users = relationship("Users", back_populates="cart")
     

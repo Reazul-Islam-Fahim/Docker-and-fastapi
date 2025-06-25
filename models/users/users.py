@@ -42,3 +42,5 @@ class Users(Base):
     user_addresses = relationship("UserAddresses", back_populates="users")
     reviews = relationship("Reviews", back_populates="users")
     reply = relationship("Reply", back_populates="users")
+    orders = relationship("Orders", back_populates="users")
+    payments = relationship("Payments", back_populates="users")

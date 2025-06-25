@@ -9,8 +9,8 @@ oauth = OAuth()
 # Google OAuth Config
 oauth.register(
     name='google',
-    client_id='dummy_id',
-    client_secret='dummy_SECRET',
+    client_id='388066712413-jomsaokksgn0152vr081kqqm9flsim9p.apps.googleusercontent.com',
+    client_secret='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',
     access_token_url='https://oauth2.googleapis.com/token',
     authorize_url='https://accounts.google.com/o/oauth2/auth',
     api_base_url='https://www.googleapis.com/oauth2/v1/',
@@ -21,8 +21,8 @@ oauth.register(
 # Facebook OAuth Config
 oauth.register(
     name='facebook',
-    client_id='dummy_id',
-    client_secret='dummy_SECRET',
+    client_id='FACEBOOK_CLIENT_ID',
+    client_secret='FACEBOOK_CLIENT_SECRET',
     access_token_url='https://graph.facebook.com/v9.0/oauth/access_token',
     authorize_url='https://www.facebook.com/v9.0/dialog/oauth',
     api_base_url='https://graph.facebook.com/v9.0/',
@@ -34,8 +34,8 @@ oauth.register(
 # Apple’s OAuth is a bit more complex (JWT client secret needed)
 oauth.register(
     name='apple',
-    client_id='dummy_id',
-    client_secret='dummy_SECRET',  # For Apple, usually a JWT; see below for more info
+    client_id='APPLE_CLIENT_ID',
+    client_secret='APPLE_CLIENT_SECRET',  # For Apple, usually a JWT; see below for more info
     authorize_url='https://appleid.apple.com/auth/authorize',
     access_token_url='https://appleid.apple.com/auth/token',
     api_base_url='https://appleid.apple.com',

@@ -32,9 +32,10 @@ def clean_file_name(file_name: str) -> str:
 async def get_categories(
     page: int = Query(0, ge=0),
     limit: int = Query(10, ge=1),
+    is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
-    return await get_all_categories(db, page, limit)
+    return await get_all_categories(db, page, limit, is_active)
 
 
 @router.get("/{id}")
@@ -61,6 +62,8 @@ async def update_category_info(
     id: int,
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),
+    meta_description: Optional[str] = Form(None),
     is_active: bool = Form(True),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
@@ -68,6 +71,8 @@ async def update_category_info(
     category_data = CategoriesSchema(
         name=name,
         description=description,
+        meta_title=meta_title,
+        meta_description=meta_description,
         is_active=is_active
     )
     
@@ -86,6 +91,8 @@ async def update_category_info(
 async def create_category_data(
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),
+    meta_description: Optional[str] = Form(None),
     is_active: bool = Form(True),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -93,6 +100,8 @@ async def create_category_data(
     category_data = CategoriesSchema(
         name=name,
         description=description,
+        meta_title=meta_title,
+        meta_description=meta_description,
         is_active=is_active
     )
 

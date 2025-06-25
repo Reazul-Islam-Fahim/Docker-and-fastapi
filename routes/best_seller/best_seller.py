@@ -20,8 +20,12 @@ async def read(id: int, db: AsyncSession = Depends(get_db)):
     return await get_best_seller_by_id(db, id)
 
 @router.get("", response_model=list[BestSellerSchema])
-async def read_all(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(get_db)):
-    return await get_all_best_sellers(db, skip, limit)
+async def read_all(
+    page: int = 0, 
+    limit: int = 10, 
+    db: AsyncSession = Depends(get_db)
+    ):
+    return await get_all_best_sellers(db, page, limit)
 
 @router.put("/{id}", response_model=BestSellerSchema)
 async def update(id: int, vendor_id : int, db: AsyncSession = Depends(get_db)):

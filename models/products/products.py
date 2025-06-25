@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, func, ForeignKey, Float, Enum as senum, ARRAY, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ARRAY, func, ForeignKey, Float, Enum as senum
 from sqlalchemy.orm import relationship
 from database.db import Base
 from enum import Enum
@@ -12,8 +12,10 @@ class Products(Base):
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(255), nullable=False)
-    slug = Column(String(255), nullable= True, unique=True)
+    slug = Column(String(255), nullable=True, unique=True)
     description = Column(String(511), nullable=True)
+    meta_title = Column(String(255), nullable=True)
+    meta_description = Column(String(511), nullable=True)
     price = Column(Float, nullable=False)
     payable_price = Column(Float, nullable=False)
     discount_type = Column(senum(DiscountTypeEnum), nullable=False)
@@ -23,7 +25,6 @@ class Products(Base):
     total_stock = Column(Integer, nullable=False, default=0)
     available_stock = Column(Integer, nullable=False, default=0)
     quantity_sold = Column(Integer, nullable=False, default=0)
-    variants = Column(JSON, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(String(50), nullable=False, server_default=func.now())
     updated_at = Column(String(50), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -31,14 +32,13 @@ class Products(Base):
     sub_category_id = Column(Integer, ForeignKey("sub_categories.id"), nullable=False)
     brand_id = Column(Integer, ForeignKey("brands.id"), nullable=False)
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
-    features_id = Column(Integer, ForeignKey("product_features.id"), nullable=False)
-    
+
     sub_categories = relationship("SubCategories", back_populates="products")
     brands = relationship("Brands", back_populates="products")
     vendors = relationship("Vendors", back_populates="products")
-    product_features = relationship("ProductFeatures", back_populates="products")
     wishlist = relationship("Wishlist", back_populates="products")
     cart_items = relationship("CartItems", back_populates="products")
     inventory = relationship("Inventory", back_populates="products")
     reviews = relationship("Reviews", back_populates="products")
     reply = relationship("Reply", back_populates="products")
+    order_items = relationship("OrderItems", back_populates="products")

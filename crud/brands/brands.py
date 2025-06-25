@@ -1,8 +1,10 @@
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
 from models.brands.brands import Brands
 from schemas.brands.brands import BrandSchema
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -25,26 +27,55 @@ async def get_brands_by_id(db: AsyncSession, id: int):
         print("DB Error:", e)
         raise HTTPException(status_code=404, detail="Brand is not found...")
 
+async def get_all_brands(
+    db: AsyncSession,
+    page: int = 0,
+    limit: int = 10,
+    is_active: bool | None = None
+):
+    try:
+        base_query = select(Brands)
 
-async def get_all_brands(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(
-        select(Brands).offset(skip).limit(limit)
-    )
-    all_brands = result.scalars().all()
-    
-    return [
-        {
-            "id": brand.id,
-            "name": brand.name,
-            "description": brand.description,
-            "image": brand.image,
-            "is_active": brand.is_active
+        if is_active is not None:
+            base_query = base_query.where(Brands.is_active == is_active)
+
+        # Total count query
+        total_query = select(func.count()).select_from(base_query.subquery())
+        total_result = await db.execute(total_query)
+        total = total_result.scalar_one()
+
+        # Pagination
+        result = await db.execute(
+            base_query.offset(page * limit).limit(limit)
+        )
+        all_brands = result.scalars().all()
+
+        # Build response
+        return {
+            "data": [
+                {
+                    "id": brand.id,
+                    "name": brand.name,
+                    "description": brand.description,
+                    "image": brand.image,
+                    "is_active": brand.is_active
+                }
+                for brand in all_brands
+            ],
+            "meta": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": (total + limit - 1) // limit
+            }
         }
-        for brand in all_brands
-    ]
 
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
 
-from sqlalchemy.exc import SQLAlchemyError
 
 async def update_brand(
     db: AsyncSession,

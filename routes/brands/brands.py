@@ -15,11 +15,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("")
 async def get_sub_categories(
-    skip: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    is_active: Optional[bool] = Query(None),
+    page: int = Query(0, ge=0),
     limit: int = Query(10, ge=1),
-    db: AsyncSession = Depends(get_db)
 ):
-    return await get_all_brands(db, skip, limit)
+    return await get_all_brands(db, page, limit, is_active)
 
 @router.get("/{id}")
 async def get_brands_by_id_data(id: int, db: AsyncSession = Depends(get_db)):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from crud.products.products import create_product, get_product_by_id, get_all_products, get_products_by_vendor, update_product, update_product_by_vendor_id
@@ -8,7 +8,6 @@ from models.products.products import DiscountTypeEnum
 import os
 import shutil
 import uuid
-import json
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
@@ -17,14 +16,19 @@ UPLOAD_DIR = "resources/products"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("")
-async def list_products(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(get_db)):
-    return await get_all_products(db, skip, limit)
+async def list_products(
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1),
+    is_active: Optional[bool] = Query(None),
+):
+    return await get_all_products(db, page, limit, is_active)
+
+
 
 @router.get("/{product_id}")
 async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     return await get_product_by_id(db, product_id)
-
-
 
 def save_file(file: UploadFile, folder: str = UPLOAD_DIR) -> str:
     if not file.content_type.startswith("image/"):
@@ -41,47 +45,34 @@ def save_file(file: UploadFile, folder: str = UPLOAD_DIR) -> str:
 async def create_product_endpoint(
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),
+    meta_description: Optional[str] = Form(None),
     price: float = Form(...),
-    slug: Optional[str] = Form(None),
-    payable_price: float = Form(None),
     discount_type: DiscountTypeEnum = Form(...),
     discount_amount: Optional[float] = Form(None),
-    total_stock: int = Form(...),
-    available_stock: int = Form(None),
-    quantity_sold: int = Form(...),
-    variants: Optional[str] = Form(None),
     is_active: bool = Form(True),
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
     vendor_id: int = Form(...),
-    features_id: int = Form(...),
     highligthed_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
     highligthed_image_path = save_file(highligthed_image) if highligthed_image else None
     image_paths = [save_file(img) for img in images] if images else []
-    try:
-        variants_dict = json.loads(variants)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON for variants.")
+    
     product_data = ProductsSchema(
         name=name,
         description=description,
         price=price,
-        payable_price=payable_price,
         discount_type=discount_type,
         discount_amount=discount_amount,
-        total_stock=total_stock,
-        available_stock=available_stock,
-        quantity_sold=quantity_sold,
-        variants=variants_dict,
         is_active=is_active,
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=vendor_id,
-        features_id=features_id,
-        slug=slug if slug else None,
+        meta_title=meta_title,
+        meta_description=meta_description,
     )
     return await create_product(db, product_data, highligthed_image_path, image_paths)
 
@@ -90,20 +81,16 @@ async def update_product_endpoint(
     product_id: int,
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),
+    meta_description: Optional[str] = Form(None),
     price: float = Form(...),
     slug: Optional[str] = Form(None),
-    payable_price: float = Form(...),
     discount_type: DiscountTypeEnum = Form(...),
     discount_amount: Optional[float] = Form(None),
-    total_stock: int = Form(...),
-    available_stock: int = Form(...),
-    quantity_sold: int = Form(...),
-    variants: Optional[str] = Form(None),
     is_active: bool = Form(True),
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
     vendor_id: int = Form(...),
-    features_id: int = Form(...),
     highligthed_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -111,27 +98,18 @@ async def update_product_endpoint(
     highligthed_image_path = save_file(highligthed_image) if highligthed_image else None
     image_paths = [save_file(img) for img in images] if images else []
 
-    try:
-        variants_dict = json.loads(variants)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON for variants.")
-
     product_data = ProductsSchema(
         name=name,
         description=description,
+        meta_title=meta_title,
+        meta_description=meta_description,
         price=price,
-        payable_price=payable_price,
         discount_type=discount_type,
         discount_amount=discount_amount,
-        total_stock=total_stock,
-        available_stock=available_stock,
-        quantity_sold=quantity_sold,
-        variants=variants_dict,
         is_active=is_active,
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=vendor_id,
-        features_id=features_id,
         slug=slug if slug else None,
     )
 
@@ -141,11 +119,12 @@ async def update_product_endpoint(
 @router.get("/vendor/{vendor_id}")
 async def list_products_by_vendor_id(
     vendor_id: int,
-    skip: int = 0,
-    limit: int = 10,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1),
+    is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
-    return await get_products_by_vendor(db, vendor_id, skip, limit)
+    return await get_products_by_vendor(db, vendor_id, page, limit, is_active)
 
 
 @router.put("/vendor/{product_id}")
@@ -154,19 +133,15 @@ async def update_specific_product_by_vendor_id(
     current_vendor_id: int,
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    meta_title: Optional[str] = Form(None),
+    meta_description: Optional[str] = Form(None),
     price: float = Form(...),
     slug: Optional[str] = Form(None),
-    payable_price: float = Form(...),
     discount_type: DiscountTypeEnum = Form(...),
     discount_amount: Optional[float] = Form(None),
-    total_stock: int = Form(...),
-    available_stock: int = Form(...),
-    quantity_sold: int = Form(...),
-    variants: Optional[str] = Form(None),
     is_active: bool = Form(True),
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
-    features_id: int = Form(...),
     highligthed_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -174,27 +149,18 @@ async def update_specific_product_by_vendor_id(
     highligthed_image_path = save_file(highligthed_image) if highligthed_image else None
     image_paths = [save_file(img) for img in images] if images else []
 
-    try:
-        variants_dict = json.loads(variants) if variants else {}
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON for variants.")
-
     product_data = ProductsSchema(
         name=name,
         description=description,
+        meta_title=meta_title,
+        meta_description=meta_description,
         price=price,
-        payable_price=payable_price,
         discount_type=discount_type,
         discount_amount=discount_amount,
-        total_stock=total_stock,
-        available_stock=available_stock,
-        quantity_sold=quantity_sold,
-        variants=variants_dict,
         is_active=is_active,
         sub_category_id=sub_category_id,
         brand_id=brand_id,
-        vendor_id=current_vendor_id, 
-        features_id=features_id,
+        vendor_id=current_vendor_id,
         slug=slug if slug else None,
     )
 

@@ -2,9 +2,8 @@ import re
 from unidecode import unidecode
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.products.products import Products
 
-async def generate_unique_slug(db: AsyncSession, name: str) -> str:
+async def generate_unique_slug(db: AsyncSession, name: str, table_name: str) -> str:
     """
     Generate a URL-friendly slug and ensure it's unique
     """
@@ -17,7 +16,7 @@ async def generate_unique_slug(db: AsyncSession, name: str) -> str:
     counter = 1
     original_slug = slug
     while True:
-        result = await db.execute(select(Products).where(Products.slug == slug))
+        result = await db.execute(select(table_name).where(table_name.slug == slug))
         if not result.scalar_one_or_none():
             return slug
         slug = f"{original_slug}-{counter}"

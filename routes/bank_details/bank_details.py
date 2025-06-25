@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from database.db import get_db
@@ -21,8 +21,13 @@ async def read_bank_detail(id: int, db: AsyncSession = Depends(get_db)):
     return bank_detail
 
 @router.get("", response_model=List[BankDetailsSchema])
-async def read_all_bank_details(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(get_db)):
-    return await get_all_bank_details(db, skip, limit)
+async def read_all_bank_details(
+    db: AsyncSession = Depends(get_db),
+    page: int = 0, 
+    limit: int = 10, 
+    is_active: bool | None = Query(default=None),
+):
+    return await get_all_bank_details(db, page, limit, is_active)
 
 
 @router.put("/{id}", response_model=BankDetailsSchema)

@@ -64,7 +64,7 @@ def verify_token(token: str) -> TokenData:
         if payload.get("type") not in ["access", "refresh"]:
             raise JWTError("Invalid token type")
         return TokenData(
-            email=payload.get("sub"),
+            email=payload.get("email"),
             id=payload.get("id"),
             role=payload.get("role")
         )
@@ -83,7 +83,7 @@ def verify_token(token: str) -> TokenData:
         
 def create_email_verification_token(email: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=24)
-    to_encode = {"sub": email, "exp": expire, "type": "email_verification"}
+    to_encode = {"email": email, "exp": expire, "type": "email_verification"}
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_email_verification_token(token: str) -> str:
@@ -91,7 +91,7 @@ def decode_email_verification_token(token: str) -> str:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "email_verification":
             raise JWTError("Invalid token type")
-        return payload.get("sub")
+        return payload.get("email")
     except JWTError as e:
         raise HTTPException(
             status_code=400,
@@ -100,7 +100,7 @@ def decode_email_verification_token(token: str) -> str:
 
 def create_password_reset_token(email: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=1)
-    to_encode = {"sub": email, "exp": expire, "type": "password_reset"}
+    to_encode = {"email": email, "exp": expire, "type": "password_reset"}
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def verify_password_reset_token(token: str) -> str:
@@ -108,7 +108,7 @@ def verify_password_reset_token(token: str) -> str:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "password_reset":
             raise JWTError("Invalid token type")
-        return payload.get("sub")
+        return payload.get("email")
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

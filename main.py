@@ -16,7 +16,18 @@ from routes.products import products
 from routes.wishlist import wishlist
 from routes.cart_items import cart_items
 from routes.cart import cart
+from routes.inventory import inventory
+from routes.user_addresses import user_addresses
+from routes.cupons import cupons
+from routes.reviews import reviews
+from routes.reply import reply
+from routes.orders import orders
+from routes.order_items import order_items
+from routes.slider_type import slider_type
+from routes.payment_method import payment_method
+from routes.payments import payments
 from fastapi.staticfiles import StaticFiles
+
 
 
 async def init_models():
@@ -42,7 +53,6 @@ app.add_middleware(
 def hi():
 	return {"hello from" : "pooz store"}
 
-# Mount static directory
 app.mount("/resources", StaticFiles(directory="resources"), name="resources")
 
 
@@ -51,6 +61,7 @@ app.include_router(login.router)
 app.include_router(oauth.router)
 app.include_router(password.router)
 app.include_router(users.router)
+app.include_router(user_addresses.router)
 app.include_router(categories.router)
 app.include_router(sub_categories.router)
 app.include_router(brands.router)
@@ -62,3 +73,12 @@ app.include_router(products.router)
 app.include_router(wishlist.router)
 app.include_router(cart_items.router)
 app.include_router(cart.router)
+app.include_router(cupons.router)
+app.include_router(inventory.router)
+app.include_router(reviews.router)
+app.include_router(reply.router)
+app.include_router(slider_type.router)
+app.include_router(orders.router)
+app.include_router(order_items.router)
+app.include_router(payment_method.router)
+app.include_router(payments.router)

@@ -14,10 +14,18 @@ async def get_bank_details_by_id(db: AsyncSession, id: int):
     
     return db_bank_details
 
-async def get_all_bank_details(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(
-        select(BankDetails).offset(skip).limit(limit)
-    )
+async def get_all_bank_details(
+    db: AsyncSession, 
+    page: int = 0, 
+    limit: int = 10,
+    is_active: bool | None = None,
+):
+    query = select(BankDetails).offset(page * limit).limit(limit)
+
+    if is_active is not None:
+        query = query.where(BankDetails.is_active == is_active)
+
+    result = await db.execute(query)
     bank_details = result.scalars().all()
     
     return [
