@@ -57,7 +57,7 @@ async def update_vendor(
         if not db_vendor:
             raise HTTPException(status_code=404, detail="Vendor not found")
 
-        new_slug = await generate_unique_slug(db, vendor_data.vendor_slug)
+        new_slug = await generate_unique_slug(db, vendor_data.store_name, Vendors, slug_field="vendor_slug")
 
         db_vendor.store_name = vendor_data.store_name
         db_vendor.documents = vendor_data.documents
@@ -114,7 +114,7 @@ async def create_vendor(
                 detail="Vendor with this user details already exists"
             )
             
-        new_slug = await generate_unique_slug(db, vendor_data.store_name)
+        new_slug = await generate_unique_slug(db, vendor_data.store_name, Vendors, slug_field="vendor_slug")
 
         new_category = Vendors(
             user_id=vendor_data.user_id,

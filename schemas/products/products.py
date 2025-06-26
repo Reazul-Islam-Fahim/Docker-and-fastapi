@@ -10,12 +10,13 @@ class ProductsSchema(BaseModel):
     price: float
     discount_type: Optional[DiscountTypeEnum] = None 
     discount_amount: Optional[int] = 0
-    highligthed_image: Optional[str] = None
+    highlighted_image: Optional[str] = None
     images: Optional[List[str]] = None
     is_active: bool = True
     sub_category_id: int
     brand_id: int
     vendor_id: int
+    features_id: list[int]
 
     class Config:
         orm_mode = True

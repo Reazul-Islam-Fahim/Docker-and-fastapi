@@ -7,7 +7,6 @@ class VendorsSchema(BaseModel):
     documents: Optional[dict] = None
     business_address: Optional[str] = None
     pick_address: Optional[str] = None
-    vendor_slug: str
     is_active: bool = True
     is_verified: bool = False
     is_shipping_enabled: bool = False

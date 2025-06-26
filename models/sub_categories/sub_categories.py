@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, func, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, func
 from sqlalchemy.orm import relationship
 from database.db import Base
 from models.associations import sub_category_features

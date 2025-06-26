@@ -7,6 +7,7 @@ from schemas.products.products import ProductsSchema
 from utils.slug import generate_unique_slug
 from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
+from models.product_features.product_features import ProductFeatures
 from sqlalchemy.orm import joinedload
 
 def calc_payable_price(
@@ -21,13 +22,71 @@ def calc_payable_price(
     else:
         return price
 
+
+async def create_product(
+    db: AsyncSession,
+    product_data: ProductsSchema,
+    highlighted_image_path: Optional[str] = None,
+    image_paths: Optional[List[str]] = None
+):
+    try:
+        new_slug = await generate_unique_slug(db, product_data.name, Products)
+
+        payable_price = calc_payable_price(
+            product_data.price,
+            product_data.discount_type.value if product_data.discount_type else None,
+            product_data.discount_amount
+        )
+
+        features = []
+        if product_data.features_id:
+            result = await db.execute(
+                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.features_id))
+            )
+            features = result.scalars().all()
+
+        new_product = Products(
+            name=product_data.name,
+            description=product_data.description,
+            meta_title=product_data.meta_title,
+            meta_description=product_data.meta_description,
+            price=product_data.price,
+            payable_price=payable_price,
+            discount_type=product_data.discount_type,
+            discount_amount=product_data.discount_amount,
+            slug=new_slug,
+            is_active=product_data.is_active,
+            sub_category_id=product_data.sub_category_id,
+            brand_id=product_data.brand_id,
+            vendor_id=product_data.vendor_id,
+            highlighted_image=highlighted_image_path,
+            images=image_paths or [],
+            product_specific_features=features
+        )
+
+        db.add(new_product)
+        await db.commit()
+        await db.refresh(new_product)
+        return new_product
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
 async def get_product_by_id(db: AsyncSession, product_id: int):
     result = await db.execute(
         select(Products)
-        .options(joinedload(Products.sub_categories))
+        .options(
+            joinedload(Products.sub_categories),
+            joinedload(Products.product_specific_features)
+        )
         .where(Products.id == product_id)
     )
-    product = result.scalar_one_or_none()
+    product = result.unique().scalar_one_or_none()
 
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
@@ -53,18 +112,16 @@ async def get_product_by_id(db: AsyncSession, product_id: int):
         "is_active": product.is_active,
         "sub_category_id": product.sub_category_id,
         "category_id": category_id,
-        "brand_id": product.brand_id,
-        "vendor_id": product.vendor_id,
         "slug": product.slug,
         "images": product.images,
-        "highligthed_image": product.highligthed_image,
+        "highlighted_image": product.highlighted_image,
         "total_stock": product.total_stock,
         "available_stock": product.available_stock,
         "quantity_sold": product.quantity_sold,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
+        "features_id": [feature.id for feature in product.product_specific_features],
     }
-
 
 async def get_all_products(
     db: AsyncSession,
@@ -72,29 +129,32 @@ async def get_all_products(
     limit: int = 10,
     is_active: Optional[bool] = None
 ):
-    
     try:
-        base_query = select(Products).options(joinedload(Products.sub_categories))
+        query = select(Products).options(
+            joinedload(Products.sub_categories),
+            joinedload(Products.product_specific_features)
+        )
 
         if is_active is not None:
-            base_query = base_query.where(Products.is_active == is_active)
+            query = query.where(Products.is_active == is_active)
 
-        total_query = select(func.count()).select_from(base_query.subquery())
+        total_query = select(func.count()).select_from(query.subquery())
         total_result = await db.execute(total_query)
         total = total_result.scalar_one()
 
         offset = (page - 1) * limit
-        result = await db.execute(base_query.offset(offset).limit(limit))
-        products = result.scalars().all()
+        result = await db.execute(query.offset(offset).limit(limit))
+        products = result.unique().scalars().all()
 
-        product_data = []
+        data = []
         for product in products:
             category_id = (
                 product.sub_categories.category_id
                 if product.sub_categories and product.sub_categories.category_id
                 else None
             )
-            product_data.append({
+
+            data.append({
                 "id": product.id,
                 "name": product.name,
                 "description": product.description,
@@ -111,11 +171,12 @@ async def get_all_products(
                 "vendor_id": product.vendor_id,
                 "slug": product.slug,
                 "images": product.images,
-                "highligthed_image": product.highligthed_image,
+                "highlighted_image": product.highlighted_image,
+                "features_id": [f.id for f in product.product_specific_features],
             })
 
         return {
-            "data": product_data,
+            "data": data,
             "meta": {
                 "total": total,
                 "page": page,
@@ -124,140 +185,47 @@ async def get_all_products(
             }
         }
 
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving products: {str(e)}")
 
-
-
-async def create_product(
-    db: AsyncSession,
-    product_data: ProductsSchema,
-    highligthed_image_path: Optional[str] = None,
-    image_paths: Optional[List[str]] = None
-):
-    try:
-        new_slug = await generate_unique_slug(db, product_data.name, Products)
-
-        payable_price = calc_payable_price(
-            product_data.price,
-            product_data.discount_type.value,
-            product_data.discount_amount
-        )
-
-        new_product = Products(
-            name=product_data.name,
-            description=product_data.description,
-            meta_title=product_data.meta_title,
-            meta_description=product_data.meta_description,
-            price=product_data.price,
-            payable_price=payable_price,
-            discount_type=product_data.discount_type,
-            discount_amount=product_data.discount_amount,
-            slug=new_slug,
-            is_active=product_data.is_active,
-            sub_category_id=product_data.sub_category_id,
-            brand_id=product_data.brand_id,
-            vendor_id=product_data.vendor_id,
-            highligthed_image=highligthed_image_path,
-            images=image_paths or [],
-        )
-
-        db.add(new_product)
-        await db.commit()
-        await db.refresh(new_product)
-        return new_product
-
-    except SQLAlchemyError as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
-async def update_product(
-    db: AsyncSession,
-    product_id: int,
-    product_data: ProductsSchema,
-    highligthed_image_path: Optional[str] = None,
-    image_paths: Optional[List[str]] = None
-):
-    try:
-        new_slug = await generate_unique_slug(db, product_data.name, Products)
-        product = await get_product_by_id(db, product_id)
-
-        payable_price = calc_payable_price(
-            product_data.price,
-            product_data.discount_type.value,
-            product_data.discount_amount
-        )
-
-        product.name = product_data.name
-        product.description = product_data.description
-        product.meta_title = product_data.meta_title
-        product.meta_description = product_data.meta_description
-        product.price = product_data.price
-        product.payable_price = payable_price
-        product.discount_type = product_data.discount_type
-        product.discount_amount = product_data.discount_amount
-        product.is_active = product_data.is_active
-        product.sub_category_id = product_data.sub_category_id
-        product.brand_id = product_data.brand_id
-        product.vendor_id = product_data.vendor_id
-        product.slug = new_slug
-
-        if highligthed_image_path:
-            product.highligthed_image = highligthed_image_path
-        if image_paths:
-            product.images = image_paths
-
-        await db.commit()
-        await db.refresh(product)
-        return product
-
-    except SQLAlchemyError as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
 async def get_products_by_vendor(
-    db: AsyncSession, 
-    vendor_id: int, 
+    db: AsyncSession,
+    vendor_id: int,
     page: int = 1,
     limit: int = 10,
     is_active: Optional[bool] = None
 ):
     try:
-        base_query = (
+        query = (
             select(Products)
-            .options(joinedload(Products.sub_categories))
+            .options(
+                joinedload(Products.sub_categories),
+                joinedload(Products.product_specific_features)
+            )
             .where(Products.vendor_id == vendor_id)
         )
 
         if is_active is not None:
-            base_query = base_query.where(Products.is_active == is_active)
+            query = query.where(Products.is_active == is_active)
 
-        total_query = select(func.count()).select_from(base_query.subquery())
+        total_query = select(func.count()).select_from(query.subquery())
         total_result = await db.execute(total_query)
         total = total_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset((page - 1) * limit).limit(limit)
-        )
+        result = await db.execute(query.offset((page - 1) * limit).limit(limit))
         products = result.scalars().all()
 
-        product_data = []
+        data = []
         for product in products:
             category_id = (
                 product.sub_categories.category_id
                 if product.sub_categories and product.sub_categories.category_id
                 else None
             )
-            product_data.append({
+
+            data.append({
                 "id": product.id,
                 "name": product.name,
                 "description": product.description,
@@ -274,16 +242,17 @@ async def get_products_by_vendor(
                 "vendor_id": product.vendor_id,
                 "slug": product.slug,
                 "images": product.images,
-                "highligthed_image": product.highligthed_image,
+                "highlighted_image": product.highlighted_image,
                 "total_stock": product.total_stock,
                 "available_stock": product.available_stock,
                 "quantity_sold": product.quantity_sold,
                 "created_at": product.created_at,
                 "updated_at": product.updated_at,
+                "features_id": [f.id for f in product.product_specific_features],
             })
 
         return {
-            "data": product_data,
+            "data": data,
             "meta": {
                 "total": total,
                 "page": page,
@@ -292,10 +261,9 @@ async def get_products_by_vendor(
             }
         }
 
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving vendor products: {str(e)}")
+
 
 
 async def update_product_by_vendor_id(
@@ -303,11 +271,17 @@ async def update_product_by_vendor_id(
     product_id: int,
     product_data: ProductsSchema,
     vendor_id: int,
-    highligthed_image_path: Optional[str] = None,
+    highlighted_image_path: Optional[str] = None,
     image_paths: Optional[List[str]] = None
 ):
     try:
-        product = await get_product_by_id(db, product_id)
+        result = await db.execute(
+            select(Products)
+            .where(Products.id == product_id)
+            .options(joinedload(Products.product_specific_features))
+        )
+        product = result.scalar_one_or_none()
+
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
@@ -321,10 +295,11 @@ async def update_product_by_vendor_id(
 
         payable_price = calc_payable_price(
             product_data.price,
-            product_data.discount_type.value,
+            product_data.discount_type.value if product_data.discount_type else None,
             product_data.discount_amount
         )
 
+        # Update product fields
         product.name = product_data.name
         product.description = product_data.description
         product.meta_title = product_data.meta_title
@@ -338,10 +313,82 @@ async def update_product_by_vendor_id(
         product.sub_category_id = product_data.sub_category_id
         product.brand_id = product_data.brand_id
 
-        if highligthed_image_path:
-            product.highligthed_image = highligthed_image_path
+        if highlighted_image_path:
+            product.highlighted_image = highlighted_image_path
         if image_paths:
             product.images = image_paths
+
+        # Update many-to-many relationship with features
+        if product_data.features_id is not None:
+            result = await db.execute(
+                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.features_id))
+            )
+            product.product_specific_features = result.scalars().all()
+
+        await db.commit()
+        await db.refresh(product)
+        return product
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+async def update_product_by_id(
+    db: AsyncSession,
+    product_id: int,
+    product_data: ProductsSchema,
+    highlighted_image_path: Optional[str] = None,
+    image_paths: Optional[List[str]] = None
+):
+    try:
+        result = await db.execute(
+            select(Products)
+            .where(Products.id == product_id)
+            .options(joinedload(Products.product_specific_features))
+        )
+        product = result.scalar_one_or_none()
+
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        new_slug = await generate_unique_slug(db, product_data.name, Products)
+
+        payable_price = calc_payable_price(
+            product_data.price,
+            product_data.discount_type.value if product_data.discount_type else None,
+            product_data.discount_amount
+        )
+
+        # Update product fields
+        product.name = product_data.name
+        product.description = product_data.description
+        product.meta_title = product_data.meta_title
+        product.meta_description = product_data.meta_description
+        product.price = product_data.price
+        product.payable_price = payable_price
+        product.discount_type = product_data.discount_type
+        product.discount_amount = product_data.discount_amount
+        product.slug = new_slug
+        product.is_active = product_data.is_active
+        product.sub_category_id = product_data.sub_category_id
+        product.brand_id = product_data.brand_id
+        product.vendor_id = product_data.vendor_id  # Optional: only if admins can reassign vendors
+
+        if highlighted_image_path:
+            product.highlighted_image = highlighted_image_path
+        if image_paths:
+            product.images = image_paths
+
+        # Update many-to-many relationship with features
+        if product_data.features_id is not None:
+            result = await db.execute(
+                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.features_id))
+            )
+            product.product_specific_features = result.scalars().all()
 
         await db.commit()
         await db.refresh(product)

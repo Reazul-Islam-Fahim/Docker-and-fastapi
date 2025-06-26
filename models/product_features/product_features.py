@@ -1,10 +1,10 @@
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
 from database.db import Base
-from models.associations import sub_category_features  
+from models.associations import sub_category_features, product_specific_features
 
 class ProductFeatures(Base):
-    __tablename__ = 'product_features'
+    __tablename__ = "product_features"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
@@ -16,4 +16,10 @@ class ProductFeatures(Base):
         "SubCategories",
         secondary=sub_category_features,
         back_populates="product_features"
+    )
+
+    products = relationship(
+        "Products",
+        secondary=product_specific_features,
+        back_populates="product_specific_features"
     )

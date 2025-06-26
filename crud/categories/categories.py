@@ -116,7 +116,7 @@ async def get_all_categories(
         }
     }
 
-
+# Get all sub-Categories by categories id
 async def get_sub_category_by_category_id(db: AsyncSession, category_id: int):
     try:
         result = await db.execute(
@@ -136,7 +136,7 @@ async def get_sub_category_by_category_id(db: AsyncSession, category_id: int):
         print("DB Error:", e)
         raise HTTPException(status_code=500, detail="Error retrieving subcategories.")
 
-
+# Update Categories
 async def update_category(
     db: AsyncSession,
     id: int,
@@ -184,7 +184,7 @@ async def update_category(
             detail=f"Unexpected error: {str(e)}"
         )
 
-
+# Create Categories
 async def create_category(
     db: AsyncSession,
     category_data: CategoriesSchema,

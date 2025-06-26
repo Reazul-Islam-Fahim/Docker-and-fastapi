@@ -7,7 +7,6 @@ from sqlalchemy.orm import selectinload
 from models.sub_categories.sub_categories import SubCategories
 from schemas.sub_categories.sub_categories import SubCategoriesSchema
 from models.product_features.product_features import ProductFeatures
-from models.products.products import Products
 
 
 async def get_sub_category_by_id(db: AsyncSession, id: int):
@@ -151,7 +150,6 @@ async def update_sub_category(
         if not db_sub_category:
             raise HTTPException(status_code=404, detail="Sub Category not found")
 
-        # Fetch related product features again
         feature_query = await db.execute(
             select(ProductFeatures).where(ProductFeatures.id.in_(sub_category_data.features_id))
         )
