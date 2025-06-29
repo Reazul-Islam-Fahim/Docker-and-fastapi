@@ -65,7 +65,7 @@ async def get_category_by_id(db: AsyncSession, id: int):
 async def get_all_categories(
     db: AsyncSession,
     page: int = 1,
-    limit: int = 10,
+    limit: int = 20,
     is_active: Optional[bool] = None
 ):
     page = max(page, 1)

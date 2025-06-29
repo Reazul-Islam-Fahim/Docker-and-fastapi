@@ -18,3 +18,4 @@ class Payments(Base):
     users = relationship("Users", back_populates="payments")
     orders = relationship("Orders", back_populates="payments")
     payment_method = relationship("PaymentMethod", back_populates="payments")
+    sliders = relationship("Sliders", back_populates="payments")

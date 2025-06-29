@@ -1,3 +1,5 @@
+from typing import Optional
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, Query
@@ -63,23 +65,64 @@ async def create_inventory(db: AsyncSession, data: InventorySchema):
 
 async def get_all_inventories(
     db: AsyncSession,
-    page: int = 0,
-    limit: int = 10,
-    product_id: int = Query(None),
-    vendor_id: int = Query(None),
+    page: int = 1,
+    limit: int = 20,
+    product_id: Optional[int] = None,
+    vendor_id: Optional[int] = None,
 ):
-    query = select(Inventory).options(
-        joinedload(Inventory.products),
-        joinedload(Inventory.vendors).joinedload(Vendors.users),
-    )
+    try:
+        page = max(page, 1)
+        limit = max(limit, 1)
+        offset = (page - 1) * limit
 
-    if product_id:
-        query = query.where(Inventory.product_id == product_id)
-    if vendor_id:
-        query = query.where(Inventory.vendor_id == vendor_id)
+        base_query = select(Inventory).options(
+            joinedload(Inventory.products),
+            joinedload(Inventory.vendors).joinedload(Vendors.users),
+        )
 
-    result = await db.execute(query.offset(page * limit).limit(limit))
-    return result.scalars().all()
+        count_query = select(func.count()).select_from(Inventory)
+
+        if product_id:
+            base_query = base_query.where(Inventory.product_id == product_id)
+            count_query = count_query.where(Inventory.product_id == product_id)
+
+        if vendor_id:
+            base_query = base_query.where(Inventory.vendor_id == vendor_id)
+            count_query = count_query.where(Inventory.vendor_id == vendor_id)
+
+        # Get total count first
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # Get paginated data
+        result = await db.execute(base_query.offset(offset).limit(limit))
+        inventories = result.scalars().all()
+
+        return {
+            "data": [
+                {
+                    "id": inv.id,
+                    "unit_price": inv.unit_price,
+                    "total_quantity": inv.total_quantity,
+                    "total_price": inv.total_price,
+                    "inventory_type": inv.inventory_type,
+                    "invoice_number": inv.invoice_number,
+                    "notes": inv.notes,
+                    "created_at": inv.created_at,
+                    "updated_at": inv.updated_at,
+                }
+                for inv in inventories
+            ],
+            "meta": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": (total + limit - 1) // limit
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve inventories: {str(e)}")
 
 
 async def get_inventory_by_id(db: AsyncSession, inventory_id: int):

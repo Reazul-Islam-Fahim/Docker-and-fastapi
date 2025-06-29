@@ -1,4 +1,6 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.params import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.db import get_db
 from schemas.cupons.cupons import CuponsSchema
@@ -21,8 +23,13 @@ async def create_new_cupon(cupon_data: CuponsSchema, db: AsyncSession = Depends(
 
 
 @router.get("")
-async def read_all_cupons(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    return await get_all_cupons(db, skip, limit)
+async def read_all_cupons(
+    db: AsyncSession = Depends(get_db),
+    page: int = 1, 
+    limit: int = 100, 
+    is_active: Optional[bool] = Query(None),
+    ):
+    return await get_all_cupons(db, page, limit, is_active)
 
 
 @router.get("/{cupon_id}")

@@ -20,6 +20,7 @@ class SubCategories(Base):
 
     categories = relationship("Categories", back_populates="sub_categories")
     products = relationship("Products", back_populates="sub_categories")
+    sliders = relationship("Sliders", back_populates="sub_categories")
 
     product_features = relationship(
         "ProductFeatures",

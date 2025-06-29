@@ -17,21 +17,21 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Slugify: replaces all unsafe characters and spaces with dashes
 def slugify(text: str) -> str:
     text = text.lower()
-    text = re.sub(r"[^\w\s-]", "", text)         # remove special characters (commas, etc.)
-    text = re.sub(r"\s+", "-", text.strip())     # replace spaces with dash
+    text = re.sub(r"[^\w\s-]", "", text)
+    text = re.sub(r"\s+", "-", text.strip())
     return text
 
 # Clean filename: remove unwanted characters and use dashes
 def clean_file_name(file_name: str) -> str:
     file_name = file_name.lower()
-    file_name = re.sub(r"[^\w\d.-]", "-", file_name)  # replace anything that's not alphanum, dot, or dash with dash
-    file_name = re.sub(r"[-]+", "-", file_name)       # collapse multiple dashes into one
+    file_name = re.sub(r"[^\w\d.-]", "-", file_name)
+    file_name = re.sub(r"[-]+", "-", file_name)
     return file_name.strip("-")
 
 @router.get("")
 async def get_categories(
-    page: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1),
     is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):

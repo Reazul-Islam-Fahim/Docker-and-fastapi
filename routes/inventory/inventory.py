@@ -19,11 +19,11 @@ async def create(data: InventorySchema, db: AsyncSession = Depends(get_db)):
 
 @router.get("")
 async def read_all(
-    page: int = 0,
-    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    limit: int = 20,
     product_id: Optional[int] = Query(None),
     vendor_id: Optional[int] = Query(None),
-    db: AsyncSession = Depends(get_db),
 ):
     return await get_all_inventories(db, page, limit, product_id, vendor_id)
 

@@ -16,3 +16,4 @@ class Categories(Base):
     updated_at = Column(String(50), nullable=False, server_default=func.now(), onupdate=func.now())
     
     sub_categories = relationship("SubCategories", back_populates="categories")
+    sliders = relationship("Sliders", back_populates="categories")
