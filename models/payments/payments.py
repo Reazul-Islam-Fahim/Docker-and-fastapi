@@ -12,7 +12,7 @@ class Payments(Base):
     created_at = Column(String(50), nullable=False, server_default=func.now())
     
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     payment_method_id = Column(Integer, ForeignKey("payment_method.id"), nullable=False)
 
     users = relationship("Users", back_populates="payments")

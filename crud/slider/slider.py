@@ -8,14 +8,14 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import select, func
 from typing import Optional
 
-#Create Slider
+#Create Sliders
 async def create_slider(
     db: AsyncSession,
     slider_data: SlidersSchema,
     file_path: Optional[str] = None
 ):
     try:
-        # Determine is_paid and is_active based on payment_id
+        # Determine is_paid and is_active based on payments_id
         is_paid = True if slider_data.payment_id else False
         is_active = True if slider_data.payment_id else False
 
@@ -48,7 +48,7 @@ async def create_slider(
         )
 
         
-# Get all Sliders
+# Get all Sliderss
 async def get_all_sliders(
     db: AsyncSession,
     page: int = 1,
@@ -148,7 +148,7 @@ async def get_slider_by_id(db: AsyncSession, id: int):
     return slider
 
 
-# Get Sliders by slider_type_id with pagination
+#Get Sliders by slider_type_id with pagination
 async def get_sliders_by_slider_type_id(db: AsyncSession, slider_type_id: int, page: int = 1, limit: int = 20):
     offset = (page - 1) * limit
 
@@ -197,7 +197,7 @@ async def get_sliders_by_slider_type_id(db: AsyncSession, slider_type_id: int, p
         }
     }
 
-#Update Slider
+#Update Sliders
 async def update_slider(
     db: AsyncSession,
     id: int,

@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -80,48 +81,45 @@ async def get_all_brands(
 async def update_brand(
     db: AsyncSession,
     id: int,
-    brand_data: BrandSchema,
-    filePath: str
+    update_data: dict,
+    file_path: Optional[str] = None
 ):
     try:
         result = await db.execute(select(Brands).where(Brands.id == id))
-        db_brand_data = result.scalar_one_or_none()
+        db_brand = result.scalar_one_or_none()
 
-        if not db_brand_data:
+        if not db_brand:
             raise HTTPException(status_code=404, detail="Brand not found")
 
-        db_brand_data.name = brand_data.name
-        db_brand_data.description = brand_data.description
-        db_brand_data.image = filePath
-        db_brand_data.is_active = brand_data.is_active
+        for field, value in update_data.items():
+            setattr(db_brand, field, value)
+
+        if file_path:
+            db_brand.image = file_path
 
         await db.commit()
-        await db.refresh(db_brand_data)
+        await db.refresh(db_brand)
 
-        brand_response = {
-            "name": db_brand_data.name,
-            "description": db_brand_data.description,
-            "image": db_brand_data.image,
-            "is_active": db_brand_data.is_active
+        return {
+            "id": db_brand.id,
+            "name": db_brand.name,
+            "description": db_brand.description,
+            "image": db_brand.image,
+            "is_active": db_brand.is_active
         }
 
-        return brand_response
-
     except HTTPException:
-        raise  # Re-raise to preserve 404
+        raise
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
+            status_code=500, detail=f"Database error: {str(e)}"
         )
     except Exception as e:
         await db.rollback()
         raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error: {str(e)}"
+            status_code=500, detail=f"Unexpected error: {str(e)}"
         )
-
 
 
 async def create_brand(

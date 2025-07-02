@@ -35,19 +35,16 @@ async def create_notification(notification: NotificationsSchema, db: AsyncSessio
 
 
 @router.get("/user/{user_id}")
-async def get_notifications_by_user(user_id: int, page: int = 1, limit: int = 10, db: AsyncSession = Depends(get_db)):
+async def get_notifications_by_user(
+    user_id: int, 
+    page: int = 1, 
+    limit: int = 30, 
+    db: AsyncSession = Depends(get_db)
+    ):
     try:
-        total, total_pages, notifications = await notification_crud.get_notifications_by_user(db, user_id, page, limit)
-        return {
-            "total": total,
-            "total_pages": total_pages,
-            "page": page,
-            "limit": limit,
-            "notifications": notifications
-        }
+        return await notification_crud.get_notifications_by_user(db, user_id, page, limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.get("/{notification_id}")

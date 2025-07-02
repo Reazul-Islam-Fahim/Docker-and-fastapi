@@ -9,18 +9,34 @@ from crud.product_features.product_features import (
 )
 from database.db import get_db
 from schemas.product_features.product_features import ProductFeaturesSchema
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(prefix="/product-features", tags=["Product-Features"])
 
 
 @router.get("")
 async def read_all_product_features(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, le=100),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(100, le=100),
+    id: Optional[int] = Query(None),
+    name: Optional[str] = Query(None),
+    unit: Optional[str] = Query(None),
+    value: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    sub_category_id: Optional[int] = Query(None)
 ):
-    return await get_all_product_features(db, skip=skip, limit=limit)
+    return await get_all_product_features(
+        db=db,
+        page=page,
+        limit=limit,
+        id=id,
+        name=name,
+        unit=unit,
+        value=value,
+        is_active=is_active,
+        sub_category_id=sub_category_id
+    )
 
 
 @router.get("/{feature_id}")

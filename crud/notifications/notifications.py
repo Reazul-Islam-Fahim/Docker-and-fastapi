@@ -1,4 +1,5 @@
 import math
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -27,33 +28,50 @@ async def create_notification(db: AsyncSession, notification: NotificationsSchem
 async def get_notifications_by_user(
     db: AsyncSession,
     user_id: int,
-    page: int = 1,
-    limit: int = 10
+    page: int,
+    limit: int
 ):
     try:
-        if page < 1:
-            page = 1
-
+        page = max(page, 1)
         skip = (page - 1) * limit
 
         count_result = await db.execute(
             select(func.count()).select_from(Notifications).where(Notifications.user_id == user_id)
         )
-        total = count_result.scalar()
+        total = count_result.scalar_one()
         total_pages = math.ceil(total / limit) if limit else 1
 
         result = await db.execute(
             select(Notifications)
             .where(Notifications.user_id == user_id)
-            .order_by(Notifications.created_at.desc())  
+            .order_by(Notifications.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
         items = result.scalars().all()
 
-        return total, total_pages, items
+        return {
+            "data": [
+                {
+                    "id": n.id,
+                    "message": n.message,
+                    "type": n.type,
+                    "is_read": n.is_read,
+                    "created_at": n.created_at,
+                    "user_id": n.user_id,
+                }
+                for n in items
+            ],
+            "meta": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": total_pages
+            }
+        }
+
     except SQLAlchemyError as e:
-        raise Exception(f"Failed to fetch paginated notifications: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch paginated notifications: {e}")
 
 
 async def get_notification_by_id(db: AsyncSession, notification_id: int):

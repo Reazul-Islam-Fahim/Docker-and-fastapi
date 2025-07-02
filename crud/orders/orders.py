@@ -215,41 +215,36 @@ async def get_orders_with_optional_filters(
     status: Optional[str] = None,
     delivery_status: Optional[str] = None,
     page: int = 1,
-    limit: int = 10
+    limit: int = 30
 ):
     try:
-        page = max(page, 1)
-        limit = max(limit, 1)
         offset = (page - 1) * limit
-
         filters = []
 
         if user_id is not None:
             filters.append(Orders.user_id == user_id)
-
         if status is not None:
             filters.append(Orders.status == status)
-
         if delivery_status is not None:
             filters.append(Orders.delivery_status == delivery_status)
 
+        # Base query with filters
         base_query = select(Orders).options(selectinload(Orders.order_items))
-
         if filters:
             base_query = base_query.where(and_(*filters))
 
+        # Total count query
         count_query = select(func.count()).select_from(base_query.subquery())
         total_result = await db.execute(count_query)
-        total = total_result.scalar()
+        total = total_result.scalar_one()
 
-        result = await db.execute(base_query.offset(offset).limit(limit))
+        # Paginated query
+        result = await db.execute(
+            base_query.offset(offset).limit(limit)
+        )
         orders = result.scalars().all()
 
-        if not orders:
-            raise HTTPException(status_code=404, detail="No matching orders found")
-
         response_data = []
-
         for order in orders:
             response_data.append({
                 "order": {

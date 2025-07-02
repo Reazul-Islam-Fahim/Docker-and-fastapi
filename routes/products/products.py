@@ -34,14 +34,40 @@ def save_file(file: UploadFile, folder: str = UPLOAD_DIR) -> str:
     return path
 
 
+# This function applies filters to the product query based on the provided conditions.
 @router.get("")
 async def list_products(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1),
+    limit: int = Query(30, ge=1),
     is_active: Optional[bool] = Query(None),
+    name: Optional[str] = Query(None),
+    description: Optional[str] = Query(None),
+    meta_title: Optional[str] = Query(None),
+    meta_description: Optional[str] = Query(None),
+    sub_category_id: Optional[int] = Query(None),
+    category_id: Optional[int] = Query(None),
+    brand_id: Optional[int] = Query(None),
+    vendor_id: Optional[int] = Query(None),
+    discount_type: Optional[DiscountTypeEnum] = Query(None),
+    product_feature_name: Optional[str] = Query(None),
 ):
-    return await get_all_products(db, page, limit, is_active)
+    return await get_all_products(
+        db=db,
+        page=page,
+        limit=limit,
+        is_active=is_active,
+        name=name,
+        description=description,
+        meta_title=meta_title,
+        meta_description=meta_description,
+        sub_category_id=sub_category_id,
+        category_id=category_id,
+        brand_id=brand_id,
+        vendor_id=vendor_id,
+        discount_type=discount_type,
+        product_feature_name=product_feature_name,
+    )
 
 
 @router.get("/{product_id}")
@@ -62,7 +88,7 @@ async def create_product_endpoint(
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
     vendor_id: int = Form(...),
-    features_id: Optional[List[int]] = Form(None),
+    product_specific_features: Optional[List[int]] = Form(None),
     highlighted_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -82,7 +108,7 @@ async def create_product_endpoint(
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=vendor_id,
-        features_id=features_id
+        product_specific_features=product_specific_features
     )
     return await create_product(db, product_data, highlighted_image_path, image_paths)
 
@@ -101,7 +127,7 @@ async def update_product_endpoint(
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
     vendor_id: int = Form(...),
-    features_id: Optional[List[int]] = Form(None),
+    product_specific_features: Optional[List[int]] = Form(None),
     highlighted_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -121,7 +147,7 @@ async def update_product_endpoint(
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=vendor_id,
-        features_id=features_id
+        product_specific_features=product_specific_features
     )
 
     return await update_product_by_id(db, product_id, product_data, highlighted_image_path, image_paths)
@@ -152,7 +178,7 @@ async def update_specific_product_by_vendor_id(
     is_active: bool = Form(True),
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
-    features_id: Optional[List[int]] = Form(None),
+    product_specific_features: Optional[List[int]] = Form(None),
     highlighted_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -172,7 +198,7 @@ async def update_specific_product_by_vendor_id(
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=current_vendor_id,
-        features_id=features_id
+        product_specific_features=product_specific_features
     )
 
     return await update_product_by_vendor_id(

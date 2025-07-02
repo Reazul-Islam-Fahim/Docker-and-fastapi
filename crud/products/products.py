@@ -3,12 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
 from models.products.products import Products
+from models.sub_categories.sub_categories import SubCategories
 from schemas.products.products import ProductsSchema
 from utils.slug import generate_unique_slug
 from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from models.product_features.product_features import ProductFeatures
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
+
 
 def calc_payable_price(
     price: float,
@@ -39,9 +41,9 @@ async def create_product(
         )
 
         features = []
-        if product_data.features_id:
+        if product_data.product_specific_features:
             result = await db.execute(
-                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.features_id))
+                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.product_specific_features))
             )
             features = result.scalars().all()
 
@@ -120,23 +122,68 @@ async def get_product_by_id(db: AsyncSession, product_id: int):
         "quantity_sold": product.quantity_sold,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
-        "features_id": [feature.id for feature in product.product_specific_features],
+        "product_specific_features": [feature.id for feature in product.product_specific_features],
     }
+
+
+# This function applies filters to the product query based on the provided conditions.
+def apply_product_filters(query, filters):
+    for condition in filters:
+        query = query.where(condition)
+    return query
 
 async def get_all_products(
     db: AsyncSession,
-    page: int = 1,
-    limit: int = 10,
-    is_active: Optional[bool] = None
+    page: int,
+    limit: int,
+    is_active: Optional[bool] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    meta_title: Optional[str] = None,
+    meta_description: Optional[str] = None,
+    sub_category_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    brand_id: Optional[int] = None,
+    vendor_id: Optional[int] = None,
+    discount_type: Optional[str] = None,
+    product_feature_name: Optional[str] = None,
 ):
     try:
-        query = select(Products).options(
-            joinedload(Products.sub_categories),
-            joinedload(Products.product_specific_features)
-        )
+        filters = []
 
         if is_active is not None:
-            query = query.where(Products.is_active == is_active)
+            filters.append(Products.is_active == is_active)
+        if name:
+            filters.append(Products.name.ilike(f"%{name}%"))
+        if description:
+            filters.append(Products.description.ilike(f"%{description}%"))
+        if meta_title:
+            filters.append(Products.meta_title.ilike(f"%{meta_title}%"))
+        if meta_description:
+            filters.append(Products.meta_description.ilike(f"%{meta_description}%"))
+        if sub_category_id:
+            filters.append(Products.sub_category_id == sub_category_id)
+        if category_id:
+            filters.append(Products.sub_categories.has(SubCategories.category_id == category_id))
+        if brand_id:
+            filters.append(Products.brand_id == brand_id)
+        if vendor_id:
+            filters.append(Products.vendor_id == vendor_id)
+        if discount_type:
+            filters.append(Products.discount_type == discount_type)
+        if product_feature_name:
+            filters.append(
+                Products.product_specific_features.any(
+                    ProductFeatures.name.ilike(f"%{product_feature_name}%")
+                )
+            )
+
+        query = select(Products).options(
+            joinedload(Products.sub_categories),
+            selectinload(Products.product_specific_features)
+        )
+
+        query = apply_product_filters(query, filters)
 
         total_query = select(func.count()).select_from(query.subquery())
         total_result = await db.execute(total_query)
@@ -148,7 +195,7 @@ async def get_all_products(
 
         data = []
         for product in products:
-            category_id = (
+            category_id_value = (
                 product.sub_categories.category_id
                 if product.sub_categories and product.sub_categories.category_id
                 else None
@@ -166,13 +213,16 @@ async def get_all_products(
                 "discount_amount": product.discount_amount,
                 "is_active": product.is_active,
                 "sub_category_id": product.sub_category_id,
-                "category_id": category_id,
+                "category_id": category_id_value,
                 "brand_id": product.brand_id,
                 "vendor_id": product.vendor_id,
                 "slug": product.slug,
                 "images": product.images,
                 "highlighted_image": product.highlighted_image,
-                "features_id": [f.id for f in product.product_specific_features],
+                "product_specific_features": [
+                    {"id": f.id, "name": f.name, "unit": f.unit, "value": f.value}
+                    for f in product.product_specific_features
+                ],
             })
 
         return {
@@ -187,7 +237,6 @@ async def get_all_products(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving products: {str(e)}")
-
 
 
 async def get_products_by_vendor(
@@ -248,7 +297,7 @@ async def get_products_by_vendor(
                 "quantity_sold": product.quantity_sold,
                 "created_at": product.created_at,
                 "updated_at": product.updated_at,
-                "features_id": [f.id for f in product.product_specific_features],
+                "product_specific_features": [f.id for f in product.product_specific_features],
             })
 
         return {
@@ -263,7 +312,6 @@ async def get_products_by_vendor(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving vendor products: {str(e)}")
-
 
 
 async def update_product_by_vendor_id(
@@ -299,7 +347,6 @@ async def update_product_by_vendor_id(
             product_data.discount_amount
         )
 
-        # Update product fields
         product.name = product_data.name
         product.description = product_data.description
         product.meta_title = product_data.meta_title
@@ -318,11 +365,11 @@ async def update_product_by_vendor_id(
         if image_paths:
             product.images = image_paths
 
-        # Update many-to-many relationship with features
-        if product_data.features_id is not None:
+        if product_data.product_specific_features is not None:
             result = await db.execute(
-                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.features_id))
+                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.product_specific_features))
             )
+            product.product_specific_features.clear()  # ✅ Prevent duplication
             product.product_specific_features = result.scalars().all()
 
         await db.commit()
@@ -363,7 +410,6 @@ async def update_product_by_id(
             product_data.discount_amount
         )
 
-        # Update product fields
         product.name = product_data.name
         product.description = product_data.description
         product.meta_title = product_data.meta_title
@@ -376,18 +422,18 @@ async def update_product_by_id(
         product.is_active = product_data.is_active
         product.sub_category_id = product_data.sub_category_id
         product.brand_id = product_data.brand_id
-        product.vendor_id = product_data.vendor_id  # Optional: only if admins can reassign vendors
+        product.vendor_id = product_data.vendor_id
 
         if highlighted_image_path:
             product.highlighted_image = highlighted_image_path
         if image_paths:
             product.images = image_paths
 
-        # Update many-to-many relationship with features
-        if product_data.features_id is not None:
+        if product_data.product_specific_features is not None:
             result = await db.execute(
-                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.features_id))
+                select(ProductFeatures).where(ProductFeatures.id.in_(product_data.product_specific_features))
             )
+            product.product_specific_features.clear()  # ✅ Prevent duplication
             product.product_specific_features = result.scalars().all()
 
         await db.commit()

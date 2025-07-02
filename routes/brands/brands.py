@@ -29,31 +29,46 @@ async def get_brands_by_id_data(id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Brand not found")
     return brand
 
-@router.put("/{id}")
-async def update_brand_info(
+@router.patch("/{id}")
+async def patch_brand_info(
     id: int,
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-    is_active: bool = Form(True),
+    is_active: Optional[bool] = Form(None),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
-    brand_data = BrandSchema(
-        name=name,
-        description=description,
-        is_active=is_active
-    )
-    
-    if not image.content_type.startswith("image/"):
+    update_data = {}
+
+    if name is not None:
+        update_data["name"] = name
+    if description is not None:
+        update_data["description"] = description
+    if is_active is not None:
+        update_data["is_active"] = is_active
+
+    file_path = None
+
+    if image:
+        if not image.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="File must be an image.")
+        
+        if not os.path.exists(UPLOAD_DIR):
+            os.makedirs(UPLOAD_DIR)
 
-    filename = f"{name}_{image.filename.replace(' ', '_')}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
+        final_filename = f"{name if name else 'brand'}_{image.filename.replace(' ', '_')}"
+        file_path = os.path.join(UPLOAD_DIR, final_filename)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
-    
-    return await update_brand(db, id, brand_data, file_path)
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
+        finally:
+            await image.close()
+
+    return await update_brand(db, id, update_data, file_path)
+
 
 @router.post("", response_model=BrandSchema)
 async def create_brand_data(

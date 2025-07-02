@@ -8,7 +8,7 @@ class ProductFeatures(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    type = Column(String, nullable=False)  
+    unit = Column(String, nullable=False)  
     value = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
 

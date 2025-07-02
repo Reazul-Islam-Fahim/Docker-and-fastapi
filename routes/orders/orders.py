@@ -31,7 +31,7 @@ async def get_orders_with_filtering(
     status: Optional[OrderStatus] = Query(None),
     delivery_status: Optional[DeliveryStatus] = Query(None),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1),
+    limit: int = Query(30, ge=1),
     db: AsyncSession = Depends(get_db)
 ):
     return await get_orders_with_optional_filters(

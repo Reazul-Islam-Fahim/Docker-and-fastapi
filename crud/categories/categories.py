@@ -12,41 +12,63 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 from typing import Optional
 
-async def get_products_by_category_id(db: AsyncSession, category_id: int):
+async def get_products_by_category_id(
+    db: AsyncSession, 
+    category_id: int,
+    page: int,
+    limit: int
+):
     try:
+        total_query = await db.execute(
+            select(func.count(Products.id))
+            .join(SubCategories)
+            .where(SubCategories.category_id == category_id)
+        )
+        total = total_query.scalar_one()
+
         result = await db.execute(
             select(Products)
             .join(SubCategories)
             .where(SubCategories.category_id == category_id)
             .options(joinedload(Products.sub_categories))
+            .offset((page - 1) * limit)
+            .limit(limit)
         )
         products = result.scalars().all()
 
-        return [
-            {
-                "id": p.id,
-                "name": p.name,
-                "description": p.description,
-                "meta_title": p.meta_title,
-                "meta_description": p.meta_description,
-                "brand_id": p.brand_id,
-                "vendor_id": p.vendor_id,
-                "price": p.price,
-                "payable_price": p.payable_price,
-                "available_stock": p.available_stock,
-                "discount_type": p.discount_type,
-                "discount_amount": p.discount_amount,
-                "images": p.images,
-                "highlighted_image": p.highligthed_image,
-                "is_active": p.is_active,
-                "created_at": p.created_at,
-                "subcategory_id": p.sub_category_id
+        return {
+            "data": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "meta_title": p.meta_title,
+                    "meta_description": p.meta_description,
+                    "brand_id": p.brand_id,
+                    "vendor_id": p.vendor_id,
+                    "price": p.price,
+                    "payable_price": p.payable_price,
+                    "available_stock": p.available_stock,
+                    "discount_type": p.discount_type,
+                    "discount_amount": p.discount_amount,
+                    "images": p.images,
+                    "highlighted_image": p.highlighted_image,
+                    "is_active": p.is_active,
+                    "created_at": p.created_at,
+                    "subcategory_id": p.sub_category_id
+                }
+                for p in products
+            ],
+            "meta": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": (total + limit - 1) // limit
             }
-            for p in products
-        ]
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching products: {str(e)}")
-
 
 
 async def get_category_by_id(db: AsyncSession, id: int):
@@ -61,7 +83,7 @@ async def get_category_by_id(db: AsyncSession, id: int):
     return db_category  
 
 
-# Get all Categories with the sub-categories
+#Get all Categories with the sub-categories
 async def get_all_categories(
     db: AsyncSession,
     page: int = 1,
@@ -140,8 +162,8 @@ async def get_sub_category_by_category_id(db: AsyncSession, category_id: int):
 async def update_category(
     db: AsyncSession,
     id: int,
-    category_data: CategoriesSchema,
-    filePath: str
+    data: dict,
+    file_path: Optional[str] = None
 ):
     try:
         result = await db.execute(select(Categories).where(Categories.id == id))
@@ -150,17 +172,17 @@ async def update_category(
         if not db_category:
             raise HTTPException(status_code=404, detail="Category not found")
 
-        db_category.name = category_data.name
-        db_category.description = category_data.description
-        db_category.is_active = category_data.is_active
-        db_category.meta_title = category_data.meta_title
-        db_category.meta_description = category_data.meta_description
-        db_category.image = filePath
+        # Dynamically update only provided fields
+        for field, value in data.items():
+            setattr(db_category, field, value)
+
+        if file_path:
+            db_category.image = file_path
 
         await db.commit()
         await db.refresh(db_category)
 
-        category_response = {
+        return {
             "name": db_category.name,
             "image": db_category.image,
             "description": db_category.description,
@@ -169,20 +191,14 @@ async def update_category(
             "meta_description": db_category.meta_description
         }
 
-        return category_response
-
     except SQLAlchemyError as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
 
 # Create Categories
 async def create_category(

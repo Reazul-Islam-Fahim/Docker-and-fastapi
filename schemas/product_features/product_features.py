@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 class ProductFeaturesSchema(BaseModel):
     name: str
-    type: str
+    unit: str
     value: str
     is_active: bool
     

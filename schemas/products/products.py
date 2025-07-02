@@ -16,7 +16,7 @@ class ProductsSchema(BaseModel):
     sub_category_id: int
     brand_id: int
     vendor_id: int
-    features_id: list[int]
+    product_specific_features: list[int]
 
     class Config:
         orm_mode = True

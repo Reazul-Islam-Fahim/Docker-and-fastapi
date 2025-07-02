@@ -52,40 +52,61 @@ async def read_subcategories_by_category(category_id: int, db: AsyncSession = De
 @router.get("/{category_id}/products")
 async def get_products_by_category(
     category_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1)
 ):
-    return await get_products_by_category_id(db, category_id)
+    return await get_products_by_category_id(db, category_id, page, limit)
 
 
-@router.put("/{id}")
+@router.patch("/{id}")
 async def update_category_info(
     id: int,
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     meta_title: Optional[str] = Form(None),
     meta_description: Optional[str] = Form(None),
-    is_active: bool = Form(True),
+    is_active: Optional[bool] = Form(None),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
-    category_data = CategoriesSchema(
-        name=name,
-        description=description,
-        meta_title=meta_title,
-        meta_description=meta_description,
-        is_active=is_active
-    )
-    
-    if not image.content_type.startswith("image/"):
+    # Build data dict with only provided fields
+    data = {}
+
+    if name is not None:
+        data["name"] = name
+    if description is not None:
+        data["description"] = description
+    if meta_title is not None:
+        data["meta_title"] = meta_title
+    if meta_description is not None:
+        data["meta_description"] = meta_description
+    if is_active is not None:
+        data["is_active"] = is_active
+
+    file_path = None
+
+    if image:
+        if not image.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="File must be an image.")
+        
+        if not os.path.exists(UPLOAD_DIR):
+            os.makedirs(UPLOAD_DIR)
 
-    filename = f"{name}_{image.filename.replace(' ', '_')}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
+        slugified = slugify(name if name else "category")
+        sanitized = clean_file_name(image.filename)
+        final_filename = f"{slugified}-{sanitized}"
+        file_path = os.path.join(UPLOAD_DIR, final_filename)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
-    
-    return await update_category(db, id, category_data, file_path)
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
+        finally:
+            await image.close()
+
+    return await update_category(db, id, data, file_path)
 
 @router.post("")
 async def create_category_data(
