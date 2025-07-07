@@ -126,7 +126,7 @@ async def get_product_by_id(db: AsyncSession, product_id: int):
     }
 
 
-# This function applies filters to the product query based on the provided conditions.
+#This function applies filters to the product query based on the provided conditions.
 def apply_product_filters(query, filters):
     for condition in filters:
         query = query.where(condition)
@@ -239,11 +239,12 @@ async def get_all_products(
         raise HTTPException(status_code=500, detail=f"Error retrieving products: {str(e)}")
 
 
-async def get_products_by_vendor(
+#Get products by vendor ID with pagination and optional active status filter
+async def get_products_by_vendor_id(
     db: AsyncSession,
     vendor_id: int,
-    page: int = 1,
-    limit: int = 10,
+    page: int,
+    limit: int,
     is_active: Optional[bool] = None
 ):
     try:
@@ -264,7 +265,8 @@ async def get_products_by_vendor(
         total = total_result.scalar_one()
 
         result = await db.execute(query.offset((page - 1) * limit).limit(limit))
-        products = result.scalars().all()
+        # products = result.scalars().all()
+        products = result.unique().scalars().all()
 
         data = []
         for product in products:
@@ -313,7 +315,7 @@ async def get_products_by_vendor(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving vendor products: {str(e)}")
 
-
+# Update product by vendor ID with validation for ownership
 async def update_product_by_vendor_id(
     db: AsyncSession,
     product_id: int,

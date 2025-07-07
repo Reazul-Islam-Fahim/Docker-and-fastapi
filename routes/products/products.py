@@ -5,7 +5,7 @@ from crud.products.products import (
     create_product,
     get_product_by_id,
     get_all_products,
-    get_products_by_vendor,
+    get_products_by_vendor_id,
     update_product_by_id,
     update_product_by_vendor_id,
 )
@@ -157,11 +157,11 @@ async def update_product_endpoint(
 async def list_products_by_vendor_id(
     vendor_id: int,
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1),
+    limit: int = Query(30, ge=1),
     is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_products_by_vendor(db, vendor_id, page, limit, is_active)
+    return await get_products_by_vendor_id(db, vendor_id, page, limit, is_active)
 
 
 @router.put("/vendor/{product_id}")

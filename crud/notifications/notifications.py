@@ -1,5 +1,4 @@
 import math
-from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -8,7 +7,7 @@ from models.notifications.notifications import Notifications
 from schemas.notifications.notifications import NotificationsSchema
 
 
-async def create_notification(db: AsyncSession, notification: NotificationsSchema):
+async def create_notification(db: AsyncSession, notification: NotificationsSchema, socket_manager=None):
     try:
         db_notification = Notifications(
             user_id=notification.user_id,
@@ -19,18 +18,28 @@ async def create_notification(db: AsyncSession, notification: NotificationsSchem
         db.add(db_notification)
         await db.commit()
         await db.refresh(db_notification)
+
+        if socket_manager:
+            await socket_manager.emit(
+                "new_notification",
+                {
+                    "id": db_notification.id,
+                    "user_id": db_notification.user_id,
+                    "message": db_notification.message,
+                    "type": db_notification.type,
+                    "is_read": db_notification.is_read,
+                    "created_at": str(db_notification.created_at)
+                },
+                room=str(db_notification.user_id)
+            )
+
         return db_notification
     except SQLAlchemyError as e:
         await db.rollback()
         raise Exception(f"Failed to create notification: {e}")
 
 
-async def get_notifications_by_user(
-    db: AsyncSession,
-    user_id: int,
-    page: int,
-    limit: int
-):
+async def get_notifications_by_user(db: AsyncSession, user_id: int, page: int, limit: int):
     try:
         page = max(page, 1)
         skip = (page - 1) * limit
@@ -71,7 +80,7 @@ async def get_notifications_by_user(
         }
 
     except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch paginated notifications: {e}")
+        raise Exception(f"Failed to fetch paginated notifications: {e}")
 
 
 async def get_notification_by_id(db: AsyncSession, notification_id: int):
@@ -84,7 +93,7 @@ async def get_notification_by_id(db: AsyncSession, notification_id: int):
         raise Exception(f"Failed to get notification by ID: {e}")
 
 
-async def mark_notification_as_read(db: AsyncSession, notification_id: int):
+async def mark_notification_as_read(db: AsyncSession, notification_id: int, socket_manager=None):
     try:
         result = await db.execute(
             select(Notifications).where(Notifications.id == notification_id)
@@ -92,9 +101,18 @@ async def mark_notification_as_read(db: AsyncSession, notification_id: int):
         notification = result.scalar_one_or_none()
         if not notification:
             return None
+
         notification.is_read = True
         await db.commit()
         await db.refresh(notification)
+
+        if socket_manager:
+            await socket_manager.emit(
+                "notification_read",
+                {"notification_id": notification_id},
+                room=str(notification.user_id)
+            )
+
         return notification
     except SQLAlchemyError as e:
         await db.rollback()
@@ -109,6 +127,7 @@ async def delete_notification(db: AsyncSession, notification_id: int):
         notification = result.scalar_one_or_none()
         if not notification:
             return None
+
         await db.delete(notification)
         await db.commit()
         return notification

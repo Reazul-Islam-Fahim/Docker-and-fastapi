@@ -158,7 +158,7 @@ async def get_sub_category_by_category_id(db: AsyncSession, category_id: int):
         print("DB Error:", e)
         raise HTTPException(status_code=500, detail="Error retrieving subcategories.")
 
-# Update Categories
+# Update Category
 async def update_category(
     db: AsyncSession,
     id: int,
@@ -172,7 +172,7 @@ async def update_category(
         if not db_category:
             raise HTTPException(status_code=404, detail="Category not found")
 
-        # Dynamically update only provided fields
+        # Dynamically updates the fields based on provided data
         for field, value in data.items():
             setattr(db_category, field, value)
 
@@ -200,7 +200,7 @@ async def update_category(
 
 
 
-# Create Categories
+# Create Category
 async def create_category(
     db: AsyncSession,
     category_data: CategoriesSchema,

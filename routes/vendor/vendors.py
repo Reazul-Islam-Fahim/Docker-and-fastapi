@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crud.vendor.vendors import get_vendor_by_id, get_all_vendors, update_vendor, create_vendor
 from database.db import get_db
 from schemas.vendor.vendors import VendorsSchema
-from sqlalchemy.future import select
 from models.vendor.vendors import Vendors 
 from typing import Optional
 import os

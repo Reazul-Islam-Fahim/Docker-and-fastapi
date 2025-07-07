@@ -10,28 +10,33 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
-
+from models.vendor.vendors import Vendors 
+from models.notifications.notifications import NotificationType 
+from crud.notifications.notifications import create_notification
+from schemas.notifications.notifications import NotificationsSchema
 
 async def create_order_with_items(
-    db: AsyncSession, 
-    order_data: OrdersSchema, 
-    items_data: list[OrderItemsSchema]
+    db: AsyncSession,
+    order_data: OrdersSchema,
+    items_data: list[OrderItemsSchema],
+    socket_manager=None
 ):
     try:
         db_order = Orders(
             user_id=order_data.user_id,
             shipping_address_id=order_data.user_addresses_id,
-            total_amount=0, 
+            total_amount=0,
             delivery_charge=order_data.delivery_charge,
             status=order_data.status,
             delivery_status=order_data.delivery_status,
             is_paid=order_data.is_paid
         )
         db.add(db_order)
-        await db.flush()  
+        await db.flush()
 
         total_amount = 0
         created_items = []
+        vendor_user_ids = set()
 
         for item_data in items_data:
             result = await db.execute(
@@ -57,12 +62,38 @@ async def create_order_with_items(
             db.add(order_item)
             created_items.append(order_item)
 
+            if product.vendor_id:
+                vendor_result = await db.execute(
+                    select(Vendors.user_id).where(Vendors.id == product.vendor_id)
+                )
+                vendor_user_id = vendor_result.scalar_one_or_none()
+                if vendor_user_id:
+                    vendor_user_ids.add(vendor_user_id)
+
         db_order.total_amount = total_amount + db_order.delivery_charge
 
         await db.commit()
         await db.refresh(db_order)
 
+        customer_notification = NotificationsSchema(
+            user_id=db_order.user_id,
+            message=f"Your order #{db_order.id} has been successfully placed.",
+            type=NotificationType.PUSH,
+            is_read=False
+        )
+        await create_notification(db=db, notification=customer_notification, socket_manager=socket_manager)
+
+        for vendor_user_id in vendor_user_ids:
+            vendor_notification = NotificationsSchema(
+                user_id=vendor_user_id,
+                message=f"One or more of your products were included in Order #{db_order.id}.",
+                type=NotificationType.PUSH,
+                is_read=False
+            )
+            await create_notification(db=db, notification=vendor_notification, socket_manager=socket_manager)
+
         return {
+            "message": "Order created successfully",
             "order": db_order,
             "order_items": created_items
         }
@@ -73,6 +104,7 @@ async def create_order_with_items(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create order: {str(e)}"
         )
+
 
 
 async def get_order_with_items(db: AsyncSession, order_id: int):
@@ -107,7 +139,8 @@ async def update_order_status_fields(
     status: str,
     delivery_status: str,
     page: int = 1,
-    limit: int = 10
+    limit: int = 10,
+    socket_manager=None  # optional for real-time
 ):
     try:
         page = max(page, 1)
@@ -127,6 +160,16 @@ async def update_order_status_fields(
         await db.commit()
         await db.refresh(db_order)
 
+        # ✅ Notify user about order status update
+        notification = NotificationsSchema(
+            user_id=db_order.user_id,
+            message=f"Your order #{db_order.id} status has been updated to '{status}' with delivery status '{delivery_status}'.",
+            type=NotificationType.PUSH,
+            is_read=False
+        )
+        await create_notification(db=db, notification=notification, socket_manager=socket_manager)
+
+        # Pagination for items
         count_query = select(func.count()).select_from(
             select(OrderItems).where(OrderItems.order_id == order_id).subquery()
         )
@@ -158,7 +201,7 @@ async def update_order_status_fields(
                     "id": item.id,
                     "product_id": item.product_id,
                     "quantity": item.quantity,
-                    "price": item.price,
+                    "cost": item.cost,
                 }
                 for item in order_items
             ],
@@ -176,6 +219,7 @@ async def update_order_status_fields(
             status_code=500,
             detail=f"Error updating order status: {str(e)}"
         )
+
 
 
 async def delete_order_with_items(db: AsyncSession, order_id: int):
@@ -262,7 +306,8 @@ async def get_orders_with_optional_filters(
                     {
                         "id": item.id,
                         "product_id": item.product_id,
-                        "quantity": item.quantity
+                        "quantity": item.quantity,
+                        "cost": item.cost
                     }
                     for item in order.order_items
                 ]

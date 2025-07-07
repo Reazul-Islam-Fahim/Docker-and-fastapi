@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from database.db import get_db
 from schemas.orders.orders import OrdersSchema
 from schemas.order_items.order_items import OrderItemsSchema
 from models.orders.orders import OrderStatus, DeliveryStatus
+from utils.sockets import socket_manager
 from crud.orders.orders import (
     create_order_with_items,
     get_order_with_items,
@@ -22,7 +23,8 @@ async def create_order(
     items_data: List[OrderItemsSchema],
     db: AsyncSession = Depends(get_db),
 ):
-    return await create_order_with_items(db, order_data, items_data)
+    return await create_order_with_items(db, order_data, items_data, socket_manager)
+
 
 
 @router.get("/orders")
@@ -57,7 +59,7 @@ async def update_order_status_endpoint(
     limit: int = Query(10, ge=1),
     db: AsyncSession = Depends(get_db)
 ):
-    return await update_order_status_fields(db, order_id, order_status, delivery_status, page, limit)
+    return await update_order_status_fields(db, order_id, order_status, delivery_status, page, limit, socket_manager)
 
 
 @router.delete("/{order_id}")
