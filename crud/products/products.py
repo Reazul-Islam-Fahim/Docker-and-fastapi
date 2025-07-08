@@ -10,6 +10,7 @@ from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from models.product_features.product_features import ProductFeatures
 from sqlalchemy.orm import joinedload, selectinload
+from utils.serialize_product import serialize_product
 
 
 def calc_payable_price(
@@ -23,7 +24,6 @@ def calc_payable_price(
         return price - discount_amount
     else:
         return price
-
 
 async def create_product(
     db: AsyncSession,
@@ -99,34 +99,9 @@ async def get_product_by_id(db: AsyncSession, product_id: int):
         else None
     )
 
-    return {
-        "id": product.id,
-        "name": product.name,
-        "description": product.description,
-        "meta_title": product.meta_title,
-        "meta_description": product.meta_description,
-        "brand_id": product.brand_id,
-        "vendor_id": product.vendor_id,
-        "price": product.price,
-        "payable_price": product.payable_price,
-        "discount_type": product.discount_type.value if product.discount_type else None,
-        "discount_amount": product.discount_amount,
-        "is_active": product.is_active,
-        "sub_category_id": product.sub_category_id,
-        "category_id": category_id,
-        "slug": product.slug,
-        "images": product.images,
-        "highlighted_image": product.highlighted_image,
-        "total_stock": product.total_stock,
-        "available_stock": product.available_stock,
-        "quantity_sold": product.quantity_sold,
-        "created_at": product.created_at,
-        "updated_at": product.updated_at,
-        "product_specific_features": [feature.id for feature in product.product_specific_features],
-    }
+    return serialize_product(product)
 
 
-#This function applies filters to the product query based on the provided conditions.
 def apply_product_filters(query, filters):
     for condition in filters:
         query = query.where(condition)
@@ -201,29 +176,7 @@ async def get_all_products(
                 else None
             )
 
-            data.append({
-                "id": product.id,
-                "name": product.name,
-                "description": product.description,
-                "meta_title": product.meta_title,
-                "meta_description": product.meta_description,
-                "price": product.price,
-                "payable_price": product.payable_price,
-                "discount_type": product.discount_type.value if product.discount_type else None,
-                "discount_amount": product.discount_amount,
-                "is_active": product.is_active,
-                "sub_category_id": product.sub_category_id,
-                "category_id": category_id_value,
-                "brand_id": product.brand_id,
-                "vendor_id": product.vendor_id,
-                "slug": product.slug,
-                "images": product.images,
-                "highlighted_image": product.highlighted_image,
-                "product_specific_features": [
-                    {"id": f.id, "name": f.name, "unit": f.unit, "value": f.value}
-                    for f in product.product_specific_features
-                ],
-            })
+            data.append(serialize_product(product))
 
         return {
             "data": data,
@@ -239,7 +192,6 @@ async def get_all_products(
         raise HTTPException(status_code=500, detail=f"Error retrieving products: {str(e)}")
 
 
-#Get products by vendor ID with pagination and optional active status filter
 async def get_products_by_vendor_id(
     db: AsyncSession,
     vendor_id: int,
@@ -265,7 +217,6 @@ async def get_products_by_vendor_id(
         total = total_result.scalar_one()
 
         result = await db.execute(query.offset((page - 1) * limit).limit(limit))
-        # products = result.scalars().all()
         products = result.unique().scalars().all()
 
         data = []
@@ -276,31 +227,7 @@ async def get_products_by_vendor_id(
                 else None
             )
 
-            data.append({
-                "id": product.id,
-                "name": product.name,
-                "description": product.description,
-                "meta_title": product.meta_title,
-                "meta_description": product.meta_description,
-                "price": product.price,
-                "payable_price": product.payable_price,
-                "discount_type": product.discount_type.value if product.discount_type else None,
-                "discount_amount": product.discount_amount,
-                "is_active": product.is_active,
-                "sub_category_id": product.sub_category_id,
-                "category_id": category_id,
-                "brand_id": product.brand_id,
-                "vendor_id": product.vendor_id,
-                "slug": product.slug,
-                "images": product.images,
-                "highlighted_image": product.highlighted_image,
-                "total_stock": product.total_stock,
-                "available_stock": product.available_stock,
-                "quantity_sold": product.quantity_sold,
-                "created_at": product.created_at,
-                "updated_at": product.updated_at,
-                "product_specific_features": [f.id for f in product.product_specific_features],
-            })
+            data.append(serialize_product(product))
 
         return {
             "data": data,
@@ -315,7 +242,6 @@ async def get_products_by_vendor_id(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving vendor products: {str(e)}")
 
-# Update product by vendor ID with validation for ownership
 async def update_product_by_vendor_id(
     db: AsyncSession,
     product_id: int,
@@ -341,7 +267,9 @@ async def update_product_by_vendor_id(
                 detail="You are not authorized to update this product"
             )
 
-        new_slug = await generate_unique_slug(db, product_data.name, Products)
+        if product.name != product_data.name:
+            product.slug = await generate_unique_slug(db, product_data.name, Products)
+
 
         payable_price = calc_payable_price(
             product_data.price,
@@ -357,21 +285,20 @@ async def update_product_by_vendor_id(
         product.payable_price = payable_price
         product.discount_type = product_data.discount_type
         product.discount_amount = product_data.discount_amount
-        product.slug = new_slug
         product.is_active = product_data.is_active
         product.sub_category_id = product_data.sub_category_id
         product.brand_id = product_data.brand_id
 
-        if highlighted_image_path:
+        if highlighted_image_path is not None:
             product.highlighted_image = highlighted_image_path
-        if image_paths:
+        if image_paths is not None:
             product.images = image_paths
 
         if product_data.product_specific_features is not None:
             result = await db.execute(
                 select(ProductFeatures).where(ProductFeatures.id.in_(product_data.product_specific_features))
             )
-            product.product_specific_features.clear()  # ✅ Prevent duplication
+            product.product_specific_features.clear()  
             product.product_specific_features = result.scalars().all()
 
         await db.commit()
@@ -404,7 +331,9 @@ async def update_product_by_id(
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        new_slug = await generate_unique_slug(db, product_data.name, Products)
+        if product.name != product_data.name:
+            product.slug = await generate_unique_slug(db, product_data.name, Products)
+
 
         payable_price = calc_payable_price(
             product_data.price,
@@ -420,22 +349,21 @@ async def update_product_by_id(
         product.payable_price = payable_price
         product.discount_type = product_data.discount_type
         product.discount_amount = product_data.discount_amount
-        product.slug = new_slug
         product.is_active = product_data.is_active
         product.sub_category_id = product_data.sub_category_id
         product.brand_id = product_data.brand_id
         product.vendor_id = product_data.vendor_id
 
-        if highlighted_image_path:
+        if highlighted_image_path is not None:
             product.highlighted_image = highlighted_image_path
-        if image_paths:
+        if image_paths is not None:
             product.images = image_paths
 
         if product_data.product_specific_features is not None:
             result = await db.execute(
                 select(ProductFeatures).where(ProductFeatures.id.in_(product_data.product_specific_features))
             )
-            product.product_specific_features.clear()  # ✅ Prevent duplication
+            product.product_specific_features.clear()  
             product.product_specific_features = result.scalars().all()
 
         await db.commit()

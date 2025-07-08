@@ -74,7 +74,6 @@ async def list_products(
 async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     return await get_product_by_id(db, product_id)
 
-
 @router.post("")
 async def create_product_endpoint(
     name: str = Form(...),
@@ -88,13 +87,20 @@ async def create_product_endpoint(
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
     vendor_id: int = Form(...),
-    product_specific_features: Optional[List[int]] = Form(None),
+    product_specific_features: Optional[str] = Form(None),
     highlighted_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
     highlighted_image_path = save_file(highlighted_image) if highlighted_image else None
     image_paths = [save_file(img) for img in images] if images else []
+
+    parsed_features = []
+    if product_specific_features:
+        try:
+            parsed_features = [int(x.strip()) for x in product_specific_features.split(",") if x.strip().isdigit()]
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid format for product_specific_features. Must be comma-separated integers.")
 
     product_data = ProductsSchema(
         name=name,
@@ -108,7 +114,7 @@ async def create_product_endpoint(
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=vendor_id,
-        product_specific_features=product_specific_features
+        product_specific_features=parsed_features
     )
     return await create_product(db, product_data, highlighted_image_path, image_paths)
 
@@ -127,13 +133,20 @@ async def update_product_endpoint(
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
     vendor_id: int = Form(...),
-    product_specific_features: Optional[List[int]] = Form(None),
+    product_specific_features: Optional[str] = Form(None),
     highlighted_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
     highlighted_image_path = save_file(highlighted_image) if highlighted_image else None
     image_paths = [save_file(img) for img in images] if images else []
+
+    parsed_features = []
+    if product_specific_features:
+        try:
+            parsed_features = [int(x.strip()) for x in product_specific_features.split(",") if x.strip().isdigit()]
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid format for product_specific_features. Must be comma-separated integers.")
 
     product_data = ProductsSchema(
         name=name,
@@ -147,7 +160,7 @@ async def update_product_endpoint(
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=vendor_id,
-        product_specific_features=product_specific_features
+        product_specific_features=parsed_features
     )
 
     return await update_product_by_id(db, product_id, product_data, highlighted_image_path, image_paths)
@@ -164,6 +177,7 @@ async def list_products_by_vendor_id(
     return await get_products_by_vendor_id(db, vendor_id, page, limit, is_active)
 
 
+
 @router.put("/vendor/{product_id}")
 async def update_specific_product_by_vendor_id(
     product_id: int,
@@ -178,13 +192,20 @@ async def update_specific_product_by_vendor_id(
     is_active: bool = Form(True),
     sub_category_id: int = Form(...),
     brand_id: int = Form(...),
-    product_specific_features: Optional[List[int]] = Form(None),
+    product_specific_features: Optional[str] = Form(None),
     highlighted_image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
     highlighted_image_path = save_file(highlighted_image) if highlighted_image else None
     image_paths = [save_file(img) for img in images] if images else []
+
+    parsed_features = []
+    if product_specific_features:
+        try:
+            parsed_features = [int(x.strip()) for x in product_specific_features.split(",") if x.strip().isdigit()]
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid format for product_specific_features. Must be comma-separated integers.")
 
     product_data = ProductsSchema(
         name=name,
@@ -198,7 +219,7 @@ async def update_specific_product_by_vendor_id(
         sub_category_id=sub_category_id,
         brand_id=brand_id,
         vendor_id=current_vendor_id,
-        product_specific_features=product_specific_features
+        product_specific_features=parsed_features
     )
 
     return await update_product_by_vendor_id(

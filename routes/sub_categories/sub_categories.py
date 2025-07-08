@@ -56,12 +56,12 @@ async def patch_sub_category_info(
     description: Optional[str] = Form(None),
     meta_title: Optional[str] = Form(None),
     meta_description: Optional[str] = Form(None),
-    product_feature_ids: Optional[str] = Form(None),  # Expecting a JSON list
+    product_feature_ids: Optional[str] = Form(None), 
     is_active: Optional[bool] = Form(None),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
-    # Prepare dynamic update dictionary
+
     update_data = {}
 
     if name is not None:
@@ -77,18 +77,14 @@ async def patch_sub_category_info(
     if is_active is not None:
         update_data["is_active"] = is_active
 
-    # Parse and validate product_feature_ids if present
-    feature_ids_list = []
     if product_feature_ids:
         try:
-            feature_ids_list = json.loads(product_feature_ids)
-            if not isinstance(feature_ids_list, list):
-                raise ValueError
+            feature_ids_list = [int(f.strip()) for f in product_feature_ids.split(",") if f.strip().isdigit()]
             update_data["features_id"] = feature_ids_list
         except Exception:
-            raise HTTPException(status_code=400, detail="Invalid format for product_feature_ids. Must be a JSON list.")
+            raise HTTPException(status_code=400, detail="Invalid format for product_feature_ids. Must be comma-separated integers.")
 
-    # Handle optional image
+
     file_path = None
     if image:
         if not image.content_type.startswith("image/"):
@@ -107,7 +103,6 @@ async def patch_sub_category_info(
 
     return await update_sub_category(db, id, update_data, file_path)
 
-
 @router.post("")
 async def create_sub_category_data(
     name: str = Form(...),
@@ -115,18 +110,25 @@ async def create_sub_category_data(
     description: Optional[str] = Form(None),
     meta_title: Optional[str] = Form(None),
     meta_description: Optional[str] = Form(None),
-    product_feature_ids: Optional[List[int]] = Form(None),
+    product_feature_ids: Optional[str] = Form(None),  
     is_active: bool = Form(True),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
+    try:
+        feature_ids = []
+        if product_feature_ids:
+            feature_ids = [int(f.strip()) for f in product_feature_ids.split(",") if f.strip().isdigit()]
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid format for product_feature_ids")
+
     sub_category_data = SubCategoriesSchema(
         name=name,
         category_id=category_id,
         description=description,
         meta_title=meta_title,
         meta_description=meta_description,
-        features_id=product_feature_ids if product_feature_ids else [],
+        features_id=feature_ids,
         is_active=is_active
     )
 
