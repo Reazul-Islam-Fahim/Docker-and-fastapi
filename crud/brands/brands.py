@@ -3,6 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
+from utils.serializers.serialize_brand import serialize_brand
 from models.brands.brands import Brands
 from schemas.brands.brands import BrandSchema
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,27 +13,22 @@ from sqlalchemy.exc import SQLAlchemyError
 async def get_brands_by_id(db: AsyncSession, id: int):
     try:
         result = await db.execute(select(Brands).where(Brands.id == id))
-        db_brands = result.scalar_one_or_none()
+        db_brand = result.scalar_one_or_none()
 
-        response = {
-            "id": db_brands.id,
-            "name": db_brands.name,
-            "description": db_brands.description,
-            "image": db_brands.image,
-            "is_active": db_brands.is_active
-        }
-        
-        return response
+        if not db_brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+
+        return serialize_brand(db_brand)
     
     except Exception as e:
-        print("DB Error:", e)
-        raise HTTPException(status_code=404, detail="Brand is not found...")
+        raise HTTPException(status_code=500, detail=f"Error fetching brand: {str(e)}")
+
 
 async def get_all_brands(
     db: AsyncSession,
-    page: int = 0,
-    limit: int = 10,
-    is_active: bool | None = None
+    page: int,
+    limit: int,
+    is_active: Optional[bool] = None
 ):
     try:
         base_query = select(Brands)
@@ -40,29 +36,17 @@ async def get_all_brands(
         if is_active is not None:
             base_query = base_query.where(Brands.is_active == is_active)
 
-        # Total count query
         total_query = select(func.count()).select_from(base_query.subquery())
         total_result = await db.execute(total_query)
         total = total_result.scalar_one()
 
-        # Pagination
         result = await db.execute(
-            base_query.offset(page * limit).limit(limit)
+            base_query.offset((page-1) * limit).limit(limit)
         )
         all_brands = result.scalars().all()
 
-        # Build response
         return {
-            "data": [
-                {
-                    "id": brand.id,
-                    "name": brand.name,
-                    "description": brand.description,
-                    "image": brand.image,
-                    "is_active": brand.is_active
-                }
-                for brand in all_brands
-            ],
+            "data": [serialize_brand(brand) for brand in all_brands],
             "meta": {
                 "total": total,
                 "page": page,
@@ -100,13 +84,7 @@ async def update_brand(
         await db.commit()
         await db.refresh(db_brand)
 
-        return {
-            "id": db_brand.id,
-            "name": db_brand.name,
-            "description": db_brand.description,
-            "image": db_brand.image,
-            "is_active": db_brand.is_active
-        }
+        return serialize_brand(db_brand)
 
     except HTTPException:
         raise
@@ -120,7 +98,6 @@ async def update_brand(
         raise HTTPException(
             status_code=500, detail=f"Unexpected error: {str(e)}"
         )
-
 
 async def create_brand(
     db: AsyncSession, 
@@ -150,7 +127,7 @@ async def create_brand(
         await db.commit()
         await db.refresh(new_brand)
         
-        return new_brand
+        return serialize_brand(new_brand)
 
     except SQLAlchemyError as e:
         await db.rollback()

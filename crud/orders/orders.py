@@ -14,6 +14,7 @@ from models.vendor.vendors import Vendors
 from models.notifications.notifications import NotificationType 
 from crud.notifications.notifications import create_notification
 from schemas.notifications.notifications import NotificationsSchema
+from utils.serializers.serialize_order import serialize_order_item, serialize_order
 
 async def create_order_with_items(
     db: AsyncSession,
@@ -117,13 +118,15 @@ async def get_order_with_items(db: AsyncSession, order_id: int):
             raise HTTPException(status_code=404, detail="Order not found")
 
         item_result = await db.execute(
-            select(OrderItems).where(OrderItems.order_id == order.id)
+            select(OrderItems)
+            .where(OrderItems.order_id == order.id)
+            .options(selectinload(OrderItems.products))  
         )
         order_items = item_result.scalars().all()
 
         return {
-            "order": order,
-            "order_items": order_items
+            "order": serialize_order(order),
+            "order_items": [serialize_order_item(item) for item in order_items]
         }
 
     except SQLAlchemyError as e:
@@ -132,44 +135,47 @@ async def get_order_with_items(db: AsyncSession, order_id: int):
             detail=f"Error fetching order with items: {str(e)}"
         )
 
-
 async def update_order_status_fields(
     db: AsyncSession,
     order_id: int,
-    status: str,
-    delivery_status: str,
+    status: Optional[str] = None,
+    delivery_status: Optional[str] = None,
     page: int = 1,
     limit: int = 10,
-    socket_manager=None  # optional for real-time
+    socket_manager=None
 ):
     try:
         page = max(page, 1)
         limit = max(limit, 1)
         offset = (page - 1) * limit
 
-        result = await db.execute(select(Orders).where(Orders.id == order_id))
+        result = await db.execute(
+            select(Orders).where(Orders.id == order_id)
+        )
         db_order = result.scalar_one_or_none()
 
         if not db_order:
             raise HTTPException(status_code=404, detail="Order not found")
 
-        db_order.status = status
-        db_order.delivery_status = delivery_status
-        db_order.is_paid = False if status == "pending" else True
+        if status is not None:
+            db_order.status = status
+            db_order.is_paid = False if status == "pending" else True  
+            
+        if delivery_status is not None:
+            db_order.delivery_status = delivery_status
 
         await db.commit()
         await db.refresh(db_order)
 
-        # ✅ Notify user about order status update
         notification = NotificationsSchema(
             user_id=db_order.user_id,
-            message=f"Your order #{db_order.id} status has been updated to '{status}' with delivery status '{delivery_status}'.",
+            message=f"Your order #{db_order.id} status has been updated to "
+                    f"'{db_order.status}' with delivery status '{db_order.delivery_status}'.",
             type=NotificationType.PUSH,
             is_read=False
         )
         await create_notification(db=db, notification=notification, socket_manager=socket_manager)
 
-        # Pagination for items
         count_query = select(func.count()).select_from(
             select(OrderItems).where(OrderItems.order_id == order_id).subquery()
         )
@@ -179,32 +185,15 @@ async def update_order_status_fields(
         items_result = await db.execute(
             select(OrderItems)
             .where(OrderItems.order_id == order_id)
+            .options(selectinload(OrderItems.products)) 
             .offset(offset)
             .limit(limit)
         )
         order_items = items_result.scalars().all()
 
         return {
-            "order": {
-                "id": db_order.id,
-                "total_amount": db_order.total_amount,
-                "is_paid": db_order.is_paid,
-                "status": db_order.status,
-                "delivery_status": db_order.delivery_status,
-                "delivery_charge": db_order.delivery_charge,
-                "placed_at": db_order.placed_at,
-                "user_id": db_order.user_id,
-                "shipping_address_id": db_order.shipping_address_id,
-            },
-            "order_items": [
-                {
-                    "id": item.id,
-                    "product_id": item.product_id,
-                    "quantity": item.quantity,
-                    "cost": item.cost,
-                }
-                for item in order_items
-            ],
+            "order": serialize_order(db_order),
+            "order_items": [serialize_order_item(item) for item in order_items],
             "meta": {
                 "total": total,
                 "page": page,
@@ -219,7 +208,6 @@ async def update_order_status_fields(
             status_code=500,
             detail=f"Error updating order status: {str(e)}"
         )
-
 
 
 async def delete_order_with_items(db: AsyncSession, order_id: int):
@@ -252,7 +240,7 @@ async def delete_order_with_items(db: AsyncSession, order_id: int):
             detail=f"Error deleting order: {str(e)}"
         ) 
         
-    
+
 async def get_orders_with_optional_filters(
     db: AsyncSession,
     user_id: Optional[int] = None,
@@ -272,17 +260,21 @@ async def get_orders_with_optional_filters(
         if delivery_status is not None:
             filters.append(Orders.delivery_status == delivery_status)
 
-        # Base query with filters
-        base_query = select(Orders).options(selectinload(Orders.order_items))
+        base_query = (
+            select(Orders)
+            .options(
+                selectinload(Orders.order_items)
+                .selectinload(OrderItems.products)
+            )
+        )
+
         if filters:
             base_query = base_query.where(and_(*filters))
 
-        # Total count query
         count_query = select(func.count()).select_from(base_query.subquery())
         total_result = await db.execute(count_query)
         total = total_result.scalar_one()
 
-        # Paginated query
         result = await db.execute(
             base_query.offset(offset).limit(limit)
         )
@@ -291,26 +283,8 @@ async def get_orders_with_optional_filters(
         response_data = []
         for order in orders:
             response_data.append({
-                "order": {
-                    "id": order.id,
-                    "total_amount": order.total_amount,
-                    "is_paid": order.is_paid,
-                    "status": order.status,
-                    "delivery_status": order.delivery_status,
-                    "delivery_charge": order.delivery_charge,
-                    "placed_at": order.placed_at,
-                    "user_id": order.user_id,
-                    "shipping_address_id": order.shipping_address_id,
-                },
-                "order_items": [
-                    {
-                        "id": item.id,
-                        "product_id": item.product_id,
-                        "quantity": item.quantity,
-                        "cost": item.cost
-                    }
-                    for item in order.order_items
-                ]
+                "order": serialize_order(order),
+                "order_items": [serialize_order_item(item) for item in order.order_items]
             })
 
         return {

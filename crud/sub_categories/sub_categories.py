@@ -5,6 +5,7 @@ from sqlalchemy.future import select
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
+from utils.serializers.serialize_sub_category import serialize_sub_category
 from models.products.products import Products
 from models.sub_categories.sub_categories import SubCategories
 from schemas.sub_categories.sub_categories import SubCategoriesSchema
@@ -22,23 +23,11 @@ async def get_sub_category_by_id(db: AsyncSession, id: int):
         sc = result.scalar_one_or_none()
         if not sc:
             raise HTTPException(status_code=404, detail="Sub category not found")
-
-        return {
-            "id": sc.id,
-            "category_id": sc.category_id,
-            "name": sc.name,
-            "description": sc.description,
-            "meta_title": sc.meta_title,
-            "meta_description": sc.meta_description,
-            "image": sc.image,
-            "feature_ids": [f.id for f in sc.product_features],
-            "is_active": sc.is_active
-        }
+        return serialize_sub_category(sc)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB error: {e}")
 
 
-# Get all sub-categories with pagination and filtering 
 async def get_all_sub_categories(
     db: AsyncSession,
     page: int,
@@ -55,31 +44,14 @@ async def get_all_sub_categories(
         if is_active is not None:
             base_query = base_query.where(SubCategories.is_active == is_active)
 
-        # Get total count
         total_result = await db.execute(select(func.count()).select_from(base_query.subquery()))
         total = total_result.scalar()
 
-        # Get paginated results
         result = await db.execute(base_query.offset(offset).limit(limit))
         sub_categories = result.scalars().all()
 
-        # Return in data + meta format
         return {
-            "data": [
-                {
-                    "id": sc.id,
-                    "category_id": sc.category_id,
-                    "name": sc.name,
-                    "description": sc.description,
-                    "meta_title": sc.meta_title,
-                    "meta_description": sc.meta_description,
-                    "image": sc.image,
-                    "feature_ids": [f.id for f in sc.product_features],
-                    "is_active": sc.is_active,
-                    "created_at": sc.created_at
-                }
-                for sc in sub_categories
-            ],
+            "data": [serialize_sub_category(sc) for sc in sub_categories],
             "meta": {
                 "total": total,
                 "page": page,
@@ -87,12 +59,10 @@ async def get_all_sub_categories(
                 "pages": (total + limit - 1) // limit
             }
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving sub categories: {str(e)}")
-    
 
-#Get Products by sub-category ID
+
 async def get_products_by_sub_category_id(db: AsyncSession, sub_category_id: int, page: int, limit: int):
     try:
         total_query = await db.execute(
@@ -178,17 +148,7 @@ async def create_sub_category(
         db.add(new_sub_category)
         await db.commit()
         await db.refresh(new_sub_category)
-        return {
-            "id": new_sub_category.id,
-            "name": new_sub_category.name,
-            "category_id": new_sub_category.category_id,
-            "description": new_sub_category.description,
-            "meta_title": new_sub_category.meta_title,
-            "meta_description": new_sub_category.meta_description,
-            "image": new_sub_category.image,
-            "feature_ids": [f.id for f in new_sub_category.product_features],
-            "is_active": new_sub_category.is_active
-        }
+        return serialize_sub_category(new_sub_category)
 
     except SQLAlchemyError as e:
         await db.rollback()
@@ -208,38 +168,24 @@ async def update_sub_category(
         if not db_sub_category:
             raise HTTPException(status_code=404, detail="Sub Category not found")
 
-        # Update scalar fields dynamically
         for field, value in update_data.items():
-            if field != "features_id":  # Handle separately
+            if field != "features_id":
                 setattr(db_sub_category, field, value)
 
-        # Handle feature relationships
         if "features_id" in update_data:
             feature_query = await db.execute(
                 select(ProductFeatures).where(ProductFeatures.id.in_(update_data["features_id"]))
             )
             db_sub_category.product_features = feature_query.scalars().all()
 
-        # Update image if provided
         if file_path:
             db_sub_category.image = file_path
 
         await db.commit()
         await db.refresh(db_sub_category)
 
-        return {
-            "id": db_sub_category.id,
-            "name": db_sub_category.name,
-            "category_id": db_sub_category.category_id,
-            "description": db_sub_category.description,
-            "meta_title": db_sub_category.meta_title,
-            "meta_description": db_sub_category.meta_description,
-            "image": db_sub_category.image,
-            "feature_ids": [f.id for f in db_sub_category.product_features],
-            "is_active": db_sub_category.is_active
-        }
+        return serialize_sub_category(db_sub_category)
 
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-

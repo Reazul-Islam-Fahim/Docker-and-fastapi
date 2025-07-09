@@ -10,7 +10,7 @@ from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from models.product_features.product_features import ProductFeatures
 from sqlalchemy.orm import joinedload, selectinload
-from utils.serialize_product import serialize_product
+from utils.serializers.serialize_product import serialize_product
 
 
 def calc_payable_price(
@@ -25,6 +25,7 @@ def calc_payable_price(
     else:
         return price
 
+# This function creates a new product in the database with the provided data.
 async def create_product(
     db: AsyncSession,
     product_data: ProductsSchema,

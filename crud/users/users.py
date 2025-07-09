@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
+from utils.serializers.serialize_user import serialize_user
 from models.users.users import Users
 from schemas.users.users import UpdateUserSchema
 from sqlalchemy.exc import SQLAlchemyError
@@ -16,20 +17,8 @@ async def get_user(db: AsyncSession, id: int):
 
     if not db_user:
         return None
-    
-    user_response = {
-        "id": db_user.id,
-        "name": db_user.name,
-        "email": db_user.email,
-        "phone": db_user.phone,
-        "gender": db_user.gender,
-        "dob": db_user.dob,
-        "image": db_user.image,
-        "role": db_user.role,
-        "isActive": db_user.is_active,
-    }
 
-    return user_response
+    return serialize_user(db_user)
 
 
 async def get_users(
@@ -47,7 +36,6 @@ async def get_users(
     offset = (page - 1) * limit
     base_query = select(Users)
 
-    # Filters
     filters = []
     if user_id:
         filters.append(Users.id == user_id)
@@ -65,61 +53,45 @@ async def get_users(
                 Users.phone.ilike(f"%{search}%")
             )
         )
-
+    
     if filters:
         base_query = base_query.where(and_(*filters))
 
-    # Count query
     count_query = select(func.count()).select_from(Users)
     if filters:
         count_query = count_query.where(and_(*filters))
     total_result = await db.execute(count_query)
     total = total_result.scalar()
 
-    # Sorting
     sort_column = getattr(Users, sort_by, Users.created_at)
-    if sort_order == "desc":
+    if sort_order.lower() == "desc":
         base_query = base_query.order_by(sort_column.desc())
     else:
         base_query = base_query.order_by(sort_column.asc())
 
-    # Pagination
     base_query = base_query.offset(offset).limit(limit)
-
     result = await db.execute(base_query)
     users = result.scalars().all()
 
     return {
-        "data": [
-            {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "phone": user.phone,
-                "dob": user.dob,
-                "status": user.is_active,
-                "image": user.image,
-                "role": user.role,
-                "isActive": user.is_active,
-                "created_at": user.created_at
-            }
-            for user in users
-        ],
+        "data": [serialize_user(user) for user in users],
         "meta": {
             "total": total,
             "page": page,
             "limit": limit,
-            "pages": (total + limit - 1) // limit  # total pages
+            "pages": (total + limit - 1) // limit
         }
     }
 
 
 
+
 async def update_user(
     db: AsyncSession, 
-    id: int, user: UpdateUserSchema, 
-    filePath: str
-    ):
+    id: int, 
+    user: UpdateUserSchema, 
+    filePath: Optional[str] = None
+):
     try: 
         result = await db.execute(select(Users).where(Users.id == id))
         db_user = result.scalar_one_or_none()
@@ -131,36 +103,21 @@ async def update_user(
         db_user.phone = user.phone
         db_user.dob = user.dob
         db_user.gender = user.gender
-        db_user.image = filePath
+        if filePath:
+            db_user.image = filePath
 
         await db.commit()
         await db.refresh(db_user)
-        
-        user_response = {
-            "id": db_user.id,
-            "name": db_user.name,
-            "email": db_user.email,
-            "phone": db_user.phone,
-            "dob": db_user.dob, 
-            "gender": db_user.gender,
-            "image": db_user.image
-        }
-        
-        return user_response
+
+        return serialize_user(db_user)
 
     except HTTPException:
-        raise  # re-raise known exceptions like 404
+        raise
 
     except SQLAlchemyError as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
