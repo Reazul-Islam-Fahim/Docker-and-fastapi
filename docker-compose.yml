@@ -4,7 +4,7 @@ services:
   web:
     build: .
     container_name: fastapi-app
-    command: uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - .:/app
       - ./resources:/app/resources
@@ -13,7 +13,7 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=postgresql+asyncpg://sharif:password@localhost:5432/pooz_store
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/pooz_store
 
   db:
     image: postgres:15
