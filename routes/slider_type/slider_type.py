@@ -6,7 +6,6 @@ from crud.slider_type.slider_type import (
     create_slider_type,
     get_slider_type_by_id,
     get_slider_types,
-    update_slider_type,
 )
 from database.db import get_db
 from schemas.slider_type.slider_type import SliderTypeSchema

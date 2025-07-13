@@ -6,8 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from utils.serializers.serialize_sub_category import serialize_sub_category
-from models.products.products import Products
-from models.sub_categories.sub_categories import SubCategories
+from models import *
 from schemas.sub_categories.sub_categories import SubCategoriesSchema
 from models.product_features.product_features import ProductFeatures
 from sqlalchemy.orm import joinedload

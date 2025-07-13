@@ -4,9 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from sqlalchemy import delete, func
-from models.cart.cart import Cart
-from models.cart_items.cart_items import CartItems
-from models.products.products import Products  
+from models import *
 from schemas.cart.cart import CartSchema
 
 

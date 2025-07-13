@@ -2,12 +2,12 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from fastapi import HTTPException, Query
-from models.inventory.inventory import Inventory, InventoryTypeEnum
+from fastapi import HTTPException
+from models.inventory.inventory import InventoryTypeEnum
 from schemas.inventory.inventory import InventorySchema
 from sqlalchemy.orm import joinedload
-from models.vendor.vendors import Vendors
-from models.products.products import Products
+from models import *
+
 
 
 async def create_inventory(db: AsyncSession, data: InventorySchema):

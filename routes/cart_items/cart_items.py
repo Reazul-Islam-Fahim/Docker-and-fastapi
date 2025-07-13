@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 from schemas.cart_items.cart_items import CartItemsSchema
 from database.db import get_db
 from crud.cart_items.cart_items import (

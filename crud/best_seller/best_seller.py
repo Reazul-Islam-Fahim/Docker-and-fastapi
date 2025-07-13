@@ -2,9 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
-from models.best_seller.best_seller import BestSeller
-from schemas.best_seller.best_seller import BestSellerSchema
-from models.vendor.vendors import Vendors
+from models import *
 
 
 

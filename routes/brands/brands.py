@@ -17,7 +17,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def get_sub_categories(
     db: AsyncSession = Depends(get_db),
     is_active: Optional[bool] = Query(None),
-    page: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1),
 ):
     return await get_all_brands(db, page, limit, is_active)

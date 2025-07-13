@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, update
 from fastapi import HTTPException, status
-from models.vendor.vendors import Vendors
+from models import *
 from schemas.vendor.vendors import VendorsSchema
 from sqlalchemy.exc import SQLAlchemyError
 from utils.slug import generate_unique_slug
@@ -136,6 +136,13 @@ async def create_vendor(
         
 
         db.add(new_category)
+        
+        await db.execute(
+            update(Users)
+            .where(Users.id == vendor_data.user_id)
+            .values(role="vendor")
+        )
+        
         await db.commit()
         await db.refresh(new_category)
         

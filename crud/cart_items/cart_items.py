@@ -1,8 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models.cart_items.cart_items import CartItems
 from schemas.cart_items.cart_items import CartItemsSchema
-from models.products.products import Products
+from models import *
 
 
 async def create_cart_item(db: AsyncSession, cart_item: CartItemsSchema):

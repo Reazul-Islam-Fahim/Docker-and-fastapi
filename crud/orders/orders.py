@@ -1,17 +1,14 @@
 from typing import Optional
 from sqlalchemy.orm import selectinload
 from sqlalchemy import and_, func
-from models.orders.orders import Orders
-from models.order_items.order_items import OrderItems
-from models.products.products import Products
-from schemas.orders.orders import OrdersSchema
-from schemas.order_items.order_items import OrderItemsSchema
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
-from models.vendor.vendors import Vendors 
-from models.notifications.notifications import NotificationType 
+from models.notifications.notifications import NotificationType
+from models import *
+from schemas.orders.orders import OrdersSchema
+from schemas.order_items.order_items import OrderItemsSchema
 from crud.notifications.notifications import create_notification
 from schemas.notifications.notifications import NotificationsSchema
 from utils.serializers.serialize_order import serialize_order_item, serialize_order

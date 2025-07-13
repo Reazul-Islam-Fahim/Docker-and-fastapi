@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from crud.product_features.product_features import (
     get_product_feature_by_id,
@@ -9,7 +9,7 @@ from crud.product_features.product_features import (
 )
 from database.db import get_db
 from schemas.product_features.product_features import ProductFeaturesSchema
-from typing import List, Optional
+from typing import Optional
 
 router = APIRouter(prefix="/product-features", tags=["Product-Features"])
 

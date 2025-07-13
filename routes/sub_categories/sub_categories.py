@@ -14,7 +14,6 @@ from typing import List, Optional
 import os
 import shutil
 import re
-import json
 
 router = APIRouter(prefix="/sub-categories", tags=["Sub-Categories"])
 

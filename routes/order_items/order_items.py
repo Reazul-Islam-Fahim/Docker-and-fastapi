@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.db import get_db
 from schemas.order_items.order_items import OrderItemsSchema
 from crud.order_items import order_items as order_items_crud
-from typing import List
 
 router = APIRouter(
     prefix="/order-items",

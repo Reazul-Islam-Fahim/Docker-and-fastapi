@@ -23,8 +23,8 @@ async def get_user(db: AsyncSession, id: int):
 
 async def get_users(
     db: AsyncSession,
-    page: int = 1,
-    limit: int = 10,
+    page: int,
+    limit: int,
     search: Optional[str] = None,
     user_id: Optional[int] = None,
     status: Optional[bool] = None,
@@ -99,10 +99,14 @@ async def update_user(
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        db_user.name = user.name
-        db_user.phone = user.phone
-        db_user.dob = user.dob
-        db_user.gender = user.gender
+        if user.name is not None:
+            db_user.name = user.name
+        if user.phone is not None:
+            db_user.phone = user.phone
+        if user.dob is not None:
+            db_user.dob = user.dob
+        if user.gender is not None:
+            db_user.gender = user.gender
         if filePath:
             db_user.image = filePath
 

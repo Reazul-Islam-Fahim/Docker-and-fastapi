@@ -45,7 +45,7 @@ async def get_wishlists_by_user_id(db: AsyncSession, user_id: int):
                 "product_id": item.product_id,
                 "name": item.products.name if item.products else None,
                 "price": item.products.payable_price if item.products else None,
-                "image": item.products.highligthed_image if item.products else None,
+                "image": item.products.highlighted_image if item.products else None,
                 "created_at": item.created_at,
             }
             for item in wishlists

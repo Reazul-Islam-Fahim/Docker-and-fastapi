@@ -21,7 +21,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def get_all_users(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1),
+    limit: int = Query(30, ge=1),
     search: Optional[str] = None,
     user_id: Optional[int] = None,
     status: Optional[bool] = None,
@@ -52,31 +52,31 @@ async def get_user_by_id(user_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-@router.put("/{user_id}")
-async def update_user_info(
+@router.patch("/{user_id}")
+async def patch_user_info(
     user_id: int,
     name: Optional[str] = Form(None),
     phone: Optional[str] = Form(None),
     dob: Optional[str] = Form(None),
     gender: Optional[genders] = Form(None),
     image: Optional[UploadFile] = File(None),
-    fileName : Optional[str] = Form(None),
+    fileName: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
-):   
+):
     user = UpdateUserSchema(
         name=name,
         phone=phone,
         dob=dob,
-        gender= gender
+        gender=gender
     )
-    
-    if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image.")
 
-    filename = f"{fileName}_{image.filename.replace(' ', '_')}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
+    file_path = None
+    if image:
+        if not image.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image.")
+        filename = f"{fileName}_{image.filename.replace(' ', '_')}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
-    
     return await update_user(db, user_id, user, file_path)

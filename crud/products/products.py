@@ -2,13 +2,11 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
-from models.products.products import Products
-from models.sub_categories.sub_categories import SubCategories
+from models import *
 from schemas.products.products import ProductsSchema
 from utils.slug import generate_unique_slug
 from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
-from models.product_features.product_features import ProductFeatures
 from sqlalchemy.orm import joinedload, selectinload
 from utils.serializers.serialize_product import serialize_product
 

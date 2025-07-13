@@ -1,7 +1,6 @@
 from http.client import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update, delete
 from models.reviews.reviews import Reviews
 from schemas.reviews.reviews import ReviewsSchema
 

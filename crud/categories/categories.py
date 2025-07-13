@@ -1,13 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
-from models.sub_categories.sub_categories import SubCategories
-from models.categories.categories import Categories
 from schemas.categories.categories import CategoriesSchema
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
-from models.products.products import Products
-from models.sub_categories.sub_categories import SubCategories
+from models import *
 from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 from typing import Optional

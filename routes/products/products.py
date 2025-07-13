@@ -74,6 +74,7 @@ async def list_products(
 async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     return await get_product_by_id(db, product_id)
 
+#This endpoint allows the creation of a new product with various attributes.
 @router.post("")
 async def create_product_endpoint(
     name: str = Form(...),

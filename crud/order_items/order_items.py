@@ -1,8 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
-from models.order_items.order_items import OrderItems
-from models.products.products import Products
+from models import *
 from schemas.order_items.order_items import OrderItemsSchema
 from fastapi import HTTPException, status
 
