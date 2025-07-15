@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class VendorsSchema(BaseModel):
     user_id : Optional[int]
     store_name: str
-    documents: Optional[dict] = None
+    documents: Optional[List[str]] = None
     business_address: Optional[str] = None
     pick_address: Optional[str] = None
     is_active: bool = True

@@ -3,6 +3,13 @@ from unidecode import unidecode
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+def slugify(text: str) -> str:
+    text = text.lower()
+    text = re.sub(r"[^\w\s-]", "", text)
+    text = re.sub(r"\s+", "-", text.strip())
+    return text
+
+
 async def generate_unique_slug(
     db: AsyncSession,
     name: str,

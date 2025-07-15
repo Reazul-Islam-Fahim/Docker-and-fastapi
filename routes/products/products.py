@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from crud.products.products import (
@@ -13,26 +13,14 @@ from schemas.products.products import ProductsSchema
 from database.db import get_db
 from models.products.products import DiscountTypeEnum
 import os
-import shutil
-import uuid
+from utils.save_files import save_file, UPLOAD_DIR as upload_dir
+
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
-UPLOAD_DIR = "resources/products"
+UPLOAD_DIR = os.path.join(upload_dir, "products")
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def save_file(file: UploadFile, folder: str = UPLOAD_DIR) -> str:
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image.")
-    os.makedirs(folder, exist_ok=True)
-    ext = os.path.splitext(file.filename)[-1]
-    filename = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join(folder, filename)
-    with open(path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    return path
-
 
 # This function applies filters to the product query based on the provided conditions.
 @router.get("")
@@ -93,8 +81,8 @@ async def create_product_endpoint(
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    highlighted_image_path = save_file(highlighted_image) if highlighted_image else None
-    image_paths = [save_file(img) for img in images] if images else []
+    highlighted_image_path = await save_file(highlighted_image) if highlighted_image else None
+    image_paths = [await save_file(img) for img in images] if images else []
 
     parsed_features = []
     if product_specific_features:
@@ -139,8 +127,8 @@ async def update_product_endpoint(
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    highlighted_image_path = save_file(highlighted_image) if highlighted_image else None
-    image_paths = [save_file(img) for img in images] if images else []
+    highlighted_image_path = await save_file(highlighted_image) if highlighted_image else None
+    image_paths = [await save_file(img) for img in images] if images else []
 
     parsed_features = []
     if product_specific_features:
@@ -198,8 +186,8 @@ async def update_specific_product_by_vendor_id(
     images: Optional[List[UploadFile]] = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    highlighted_image_path = save_file(highlighted_image) if highlighted_image else None
-    image_paths = [save_file(img) for img in images] if images else []
+    highlighted_image_path = await save_file(highlighted_image) if highlighted_image else None
+    image_paths = [await save_file(img) for img in images] if images else []
 
     parsed_features = []
     if product_specific_features:
@@ -228,6 +216,6 @@ async def update_specific_product_by_vendor_id(
         product_id=product_id,
         product_data=product_data,
         vendor_id=current_vendor_id,
-        highligthed_image_path=highlighted_image_path,
+        highlighted_image_path=highlighted_image_path,
         image_paths=image_paths,
     )

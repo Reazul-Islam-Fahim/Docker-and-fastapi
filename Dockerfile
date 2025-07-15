@@ -29,3 +29,6 @@ EXPOSE 8000
 
 # Run the FastAPI app with Uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+
+https://zenodo.org/records/4292991/files/bitcoin_price_data.csv

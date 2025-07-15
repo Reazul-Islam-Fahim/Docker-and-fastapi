@@ -57,25 +57,6 @@ async def update_user_address(
     return address
 
 
-async def delete_user_address(db: AsyncSession, address_id: int):
-    try:
-        result = await db.execute(
-            select(UserAddresses).where(UserAddresses.id == address_id)
-        )
-        address = result.scalar_one_or_none()
-
-        if address:
-            await db.delete(address)
-            await db.commit()
-            return "Deleted successfully"
-        return "Address not found"
-
-    except Exception as e:
-        print(f"Error deleting address: {e}")
-        await db.rollback()
-        return "An error occurred while deleting the address"
-
-
 async def set_default_address(db: AsyncSession, user_id: int, address_id: int):
     result = await db.execute(
         select(UserAddresses).where(UserAddresses.user_id == user_id)

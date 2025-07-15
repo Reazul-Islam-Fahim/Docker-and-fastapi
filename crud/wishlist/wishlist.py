@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
@@ -29,17 +30,32 @@ async def create_wishlist(
         )
 
 
-# Get All wishlist by userID
-async def get_wishlists_by_user_id(db: AsyncSession, user_id: int):
+# Get All wishlist by userIDD
+async def get_wishlists_by_user_id(
+    db: AsyncSession,
+    user_id: int,
+    page: int = 1,
+    limit: int = 30
+):
     try:
-        result = await db.execute(
+        offset = (page - 1) * limit
+
+        base_query = (
             select(Wishlist)
             .options(joinedload(Wishlist.products))
             .where(Wishlist.user_id == user_id)
         )
+
+        # Total count for meta
+        total_query = select(func.count()).select_from(base_query.subquery())
+        total_result = await db.execute(total_query)
+        total = total_result.scalar_one()
+
+        # Paginated results
+        result = await db.execute(base_query.offset(offset).limit(limit))
         wishlists = result.scalars().all()
 
-        return [
+        data = [
             {
                 "id": item.id,
                 "product_id": item.product_id,
@@ -50,8 +66,20 @@ async def get_wishlists_by_user_id(db: AsyncSession, user_id: int):
             }
             for item in wishlists
         ]
+
+        return {
+            "data": data,
+            "meta": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": (total + limit - 1) // limit,
+            }
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving wishlist: {str(e)}")
+
     
 # Delete the wishlist by ID
 async def delete_wishlist_item(wishlist_id: int, db: AsyncSession):

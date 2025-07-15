@@ -5,11 +5,11 @@ from database.db import get_db
 from schemas.brands.brands import BrandSchema
 from typing import Optional
 import os
-import shutil
+from utils.save_files import save_file, UPLOAD_DIR as upload_dir
 
 router = APIRouter(prefix="/brands", tags=["Brands"])
 
-UPLOAD_DIR = "resources/brands"
+UPLOAD_DIR = os.path.join(upload_dir, "brands")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -50,20 +50,8 @@ async def patch_brand_info(
     file_path = None
 
     if image:
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image.")
-        
-        if not os.path.exists(UPLOAD_DIR):
-            os.makedirs(UPLOAD_DIR)
-
-        final_filename = f"{name if name else 'brand'}_{image.filename.replace(' ', '_')}"
-        file_path = os.path.join(UPLOAD_DIR, final_filename)
-
         try:
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(image.file, buffer)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
+            file_path = await save_file(image)
         finally:
             await image.close()
 
@@ -84,18 +72,16 @@ async def create_brand_data(
             description=description,
             is_active=is_active
         )
-        
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image.")
 
-        filename = f"{name}_{image.filename.replace(' ', '_')}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
+        file_path = None
+        if image:
+            try:
+                file_path = await save_file(image)
+            finally:
+                await image.close()
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-            
-            return await create_brand(db, brand_data, file_path)
-        
+        return await create_brand(db, brand_data, file_path)
+
     except HTTPException as e:
         raise e
     except Exception as e:

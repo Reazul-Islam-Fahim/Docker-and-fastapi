@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
-from sqlalchemy.types import JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, ARRAY
 from sqlalchemy.orm import relationship
 from database.db import Base
 
@@ -9,7 +8,7 @@ class Vendors(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     store_name = Column(String(50), nullable=False)
-    documents = Column(JSON, nullable=True)
+    documents = Column(ARRAY(String(255)), nullable=True)
     business_address = Column(String(255), nullable=True)
     pick_address = Column(String(255), nullable=True)
     logo = Column(String(255), nullable=True)

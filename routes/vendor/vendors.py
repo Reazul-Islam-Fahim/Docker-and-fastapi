@@ -9,11 +9,13 @@ from typing import Optional
 import os
 import shutil
 from utils.slug import generate_unique_slug
+from typing import List
+from utils.save_files import save_file, UPLOAD_DIR as upload_dir
 
 
 router = APIRouter(prefix="/vendors", tags=["Vendors"])
 
-UPLOAD_DIR = "resources/vendors"
+UPLOAD_DIR = os.path.join(upload_dir, "vendors")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -37,7 +39,7 @@ async def update_sub_category_info(
     id: int,
     user_id: int = Form(...),
     store_name: Optional[str] = Form(None),
-    documents: Optional[str] = Form(None), 
+    documents: Optional[List[UploadFile]] = File(None),
     business_address: Optional[str] = Form(None),
     pick_address: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(None),
@@ -52,31 +54,21 @@ async def update_sub_category_info(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        documents_dict = None
+        image_path = await save_file(image, UPLOAD_DIR) if image else None
+
+        document_paths = []
         if documents:
-            try:
-                documents_dict = json.loads(documents)
-            except json.JSONDecodeError:
-                raise HTTPException(status_code=400, detail="Invalid JSON format in 'documents'")
-
-        file_path = None
-        if image:
-            if not image.content_type.startswith("image/"):
-                raise HTTPException(status_code=400, detail="File must be an image.")
-
-            filename = f"{store_name}_{image.filename.replace(' ', '_')}"
-            file_path = os.path.join(UPLOAD_DIR, filename)
-
-            os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(image.file, buffer)
+            for doc in documents:
+                if not doc.content_type.startswith("image/") and not doc.content_type.startswith("application/"):
+                    raise HTTPException(status_code=400, detail="Invalid document type.")
+                doc_path = await save_file(doc, UPLOAD_DIR)
+                document_paths.append(doc_path)
 
         vendor_data = VendorsSchema(
             user_id=user_id,
-            vendor_slug=generate_unique_slug(db, store_name, Vendors) if store_name else None,
+            vendor_slug=await generate_unique_slug(db, store_name, Vendors) if store_name else None,
             store_name=store_name,
-            documents=documents_dict,
+            documents=document_paths or None,
             business_address=business_address,
             pick_address=pick_address,
             is_active=is_active,
@@ -89,18 +81,18 @@ async def update_sub_category_info(
             last_order_date=last_order_date
         )
 
-        return await update_vendor(db, id, vendor_data, file_path)
+        return await update_vendor(db, id, vendor_data, image_path)
 
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-@router.post("", response_model=VendorsSchema)
+@router.post("")
 async def create_vendor_data(
     user_id: int = Form(...),
     store_name: str = Form(...),
-    documents: Optional[str] = Form(None), 
+    documents: Optional[List[UploadFile]] = File(None),
     business_address: Optional[str] = Form(None),
     pick_address: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(True),
@@ -115,19 +107,19 @@ async def create_vendor_data(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        import json
-        parsed_documents = None
+        image_path = await save_file(image, UPLOAD_DIR) if image else None
+
+        document_paths = []
         if documents:
-            try:
-                parsed_documents = json.loads(documents)
-            except json.JSONDecodeError:
-                raise HTTPException(status_code=400, detail="Invalid JSON in documents")
+            for doc in documents:
+                path = await save_file(doc, UPLOAD_DIR)
+                document_paths.append(path)
 
         vendor_data = VendorsSchema(
             user_id=user_id,
             store_name=store_name,
-            vendor_slug=generate_unique_slug(db, store_name, Vendors),
-            documents=parsed_documents,
+            vendor_slug=await generate_unique_slug(db, store_name, Vendors),
+            documents=document_paths,
             business_address=business_address,
             pick_address=pick_address,
             is_active=is_active,
@@ -140,23 +132,9 @@ async def create_vendor_data(
             last_order_date=last_order_date
         )
 
-        file_path = None
-        if image:
-            if not image.content_type.startswith("image/"):
-                raise HTTPException(status_code=400, detail="File must be an image.")
-            filename = f"{store_name}_{image.filename.replace(' ', '_')}"
-            file_path = os.path.join(UPLOAD_DIR, filename)
-            os.makedirs(UPLOAD_DIR, exist_ok=True)
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(image.file, buffer)
+        return await create_vendor(db, vendor_data, image_path)
 
-        new_vendor = await create_vendor(db, vendor_data, file_path)
-        return new_vendor
-
-    except HTTPException:
-        raise
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

@@ -5,15 +5,14 @@ from models.users.users import genders
 from crud.users.users import get_user, get_users, update_user
 from database.db import get_db
 from schemas.users.users import UpdateUserSchema
-import os
-import shutil
+from utils.save_files import save_file, UPLOAD_DIR as upload_dir
 from datetime import datetime
-
+import os
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-UPLOAD_DIR = "resources/users"
-
+# Create users-specific upload folder
+UPLOAD_DIR = os.path.join(upload_dir, "users")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
@@ -44,13 +43,13 @@ async def get_all_users(
     )
 
 
-
 @router.get("/{user_id}")
 async def get_user_by_id(user_id: int, db: AsyncSession = Depends(get_db)):
     user = await get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
 
 @router.patch("/{user_id}")
 async def patch_user_info(
@@ -60,10 +59,9 @@ async def patch_user_info(
     dob: Optional[str] = Form(None),
     gender: Optional[genders] = Form(None),
     image: Optional[UploadFile] = File(None),
-    fileName: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
-    user = UpdateUserSchema(
+    user_data = UpdateUserSchema(
         name=name,
         phone=phone,
         dob=dob,
@@ -72,11 +70,9 @@ async def patch_user_info(
 
     file_path = None
     if image:
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image.")
-        filename = f"{fileName}_{image.filename.replace(' ', '_')}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+        try:
+            file_path = save_file(image, folder=UPLOAD_DIR)
+        finally:
+            await image.close()
 
-    return await update_user(db, user_id, user, file_path)
+    return await update_user(db, user_id, user_data, file_path)

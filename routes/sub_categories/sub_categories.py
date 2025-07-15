@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Form, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from crud.sub_categories.sub_categories import (
     get_sub_category_by_id,
-    get_sub_category_by_id,
     get_all_sub_categories,
     update_sub_category,
     create_sub_category,
@@ -10,27 +9,14 @@ from crud.sub_categories.sub_categories import (
 )
 from database.db import get_db
 from schemas.sub_categories.sub_categories import SubCategoriesSchema
-from typing import List, Optional
+from typing import Optional
+from utils.save_files import save_file, UPLOAD_DIR as upload_dir
 import os
-import shutil
-import re
 
 router = APIRouter(prefix="/sub-categories", tags=["Sub-Categories"])
 
-UPLOAD_DIR = "resources/sub-categories"
+UPLOAD_DIR = os.path.join(upload_dir, "sub-categories")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-def slugify(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"\s+", "-", text.strip())
-    return text
-
-def clean_file_name(file_name: str) -> str:
-    file_name = file_name.lower()
-    file_name = re.sub(r"[^\w\d.-]", "-", file_name)
-    file_name = re.sub(r"[-]+", "-", file_name)
-    return file_name.strip("-")
 
 
 @router.get("")
@@ -41,11 +27,9 @@ async def get_sub_categories(
 ):
     return await get_all_sub_categories(db, page, limit)
 
-
 @router.get("/{id}")
 async def get_sub_category_by_id_data(id: int, db: AsyncSession = Depends(get_db)):
     return await get_sub_category_by_id(db, id)
-
 
 @router.patch("/{id}")
 async def patch_sub_category_info(
@@ -55,12 +39,11 @@ async def patch_sub_category_info(
     description: Optional[str] = Form(None),
     meta_title: Optional[str] = Form(None),
     meta_description: Optional[str] = Form(None),
-    product_feature_ids: Optional[str] = Form(None), 
+    product_feature_ids: Optional[str] = Form(None),
     is_active: Optional[bool] = Form(None),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
-
     update_data = {}
 
     if name is not None:
@@ -83,20 +66,10 @@ async def patch_sub_category_info(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid format for product_feature_ids. Must be comma-separated integers.")
 
-
     file_path = None
     if image:
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image.")
-        if not os.path.exists(UPLOAD_DIR):
-            os.makedirs(UPLOAD_DIR)
-        final_filename = f"{slugify(name if name else 'subcat')}_{clean_file_name(image.filename)}"
-        file_path = os.path.join(UPLOAD_DIR, final_filename)
         try:
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(image.file, buffer)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
+            file_path = await save_file(image, folder=UPLOAD_DIR)
         finally:
             await image.close()
 
@@ -109,7 +82,7 @@ async def create_sub_category_data(
     description: Optional[str] = Form(None),
     meta_title: Optional[str] = Form(None),
     meta_description: Optional[str] = Form(None),
-    product_feature_ids: Optional[str] = Form(None),  
+    product_feature_ids: Optional[str] = Form(None),
     is_active: bool = Form(True),
     image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
@@ -133,15 +106,12 @@ async def create_sub_category_data(
 
     file_path = None
     if image:
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image.")
-        filename = f"{slugify(name)}_{clean_file_name(image.filename)}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+        try:
+            file_path = await save_file(image, folder=UPLOAD_DIR)
+        finally:
+            await image.close()
 
     return await create_sub_category(db, sub_category_data, file_path)
-
 
 @router.get("/{sub_category_id}/products")
 async def get_products_by_sub_category(

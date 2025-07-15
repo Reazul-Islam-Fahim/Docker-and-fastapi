@@ -16,11 +16,13 @@ async def add_to_wishlist(
 
 # Get all wishlist by userID 
 @router.get("/{user_id}")
-async def get_wishlist_by_user_id_data(user_id: int, db: AsyncSession = Depends(get_db)):
-    wishlists_by_user = await get_wishlists_by_user_id(db, user_id)
-    if not wishlists_by_user:
-        raise HTTPException(status_code=404, detail="Wishlist not found")
-    return {"data": wishlists_by_user}
+async def get_wishlist_by_user_id_data(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, ge=1),
+):
+    return await get_wishlists_by_user_id(db, user_id, page, limit)
 
 # Delete the wishlist by wishlist ID
 @router.delete("/{wishlist_id}")

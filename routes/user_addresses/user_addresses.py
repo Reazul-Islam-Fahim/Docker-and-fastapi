@@ -6,7 +6,6 @@ from crud.user_addresses.user_addresses import (
     get_user_addresses_by_user_id,
     get_user_address_by_id,
     update_user_address,
-    delete_user_address,
     set_default_address
 )
 from database.db import get_db
@@ -50,17 +49,6 @@ async def update_address(
     if not updated:
         raise HTTPException(status_code=404, detail="Address not found")
     return updated
-
-
-@router.delete("/{address_id}")
-async def delete_address(
-    address_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    result = await delete_user_address(db, address_id)
-    if result == "Deleted successfully":
-        return {"message": result}
-    raise HTTPException(status_code=404, detail=result)
 
 
 @router.post("/{user_id}/set-default/{address_id}")
